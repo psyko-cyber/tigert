@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import '../core/fmt.dart';
 import '../core/theme.dart';
 import '../data/app_state.dart';
+import '../data/models.dart';
 import '../logic/training.dart';
+import 'coach.dart';
 import 'session.dart';
 import 'shell.dart';
 import 'widgets.dart';
@@ -78,6 +80,12 @@ class SessionSummaryScreen extends StatelessWidget {
                   style: TextStyle(fontSize: 13, color: TC.onAccent.withValues(alpha: 0.8)),
                 ),
             ]),
+          ),
+        if (!s.isActive && s.items.isNotEmpty)
+          CoachCard(
+            day: PlanDay(id: s.dayId ?? s.id, name: s.name, items: [for (final e in s.items) e.target]),
+            heading: 'Prossima volta',
+            margin: const EdgeInsets.only(top: 14),
           ),
         const SectionLabel('Esercizi'),
         for (final e in s.items)

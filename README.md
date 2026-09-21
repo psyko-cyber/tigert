@@ -23,7 +23,9 @@ Quando esce una nuova versione, Tigert te lo dice da solo.
 - **Nutrizione**: database di oltre 300 alimenti italiani, ricerca e barcode con [Open Food Facts](https://world.openfoodfacts.org), ricette, "solo calorie", copia dei pasti.
 - **Foto del piatto con Gemini**: con la tua chiave API (automatico) oppure con il copia-incolla del prompt su gemini.google.com (gratis, senza chiave).
 - **Target adattivi**: massa, definizione o mantenimento. Calorie calcolate con Mifflin-St Jeor e corrette ogni 2 settimane con il TDEE reale.
-- **Allenamento**: schede pronte (Upper/Lower, PPL, Full body…) ed editor completo, 148 esercizi, timer di recupero, doppia progressione, record e 1RM stimato.
+- **Allenamento**: schede pronte (Upper/Lower, PPL, Full body…) ed editor completo, 148 esercizi, timer di recupero, record e 1RM stimato.
+- **Coach di progressione**: doppia progressione automatica. Ti dice quando alzare il carico, quando cercare una ripetizione in più, quando scaricare dopo uno stallo e da che peso ripartire dopo una pausa; i carichi nuovi sono già precompilati nella sessione e arrivano anche nella notifica di allenamento.
+- **Import da Hevy**: storico, schede e cartelle, esercizi personalizzati e pesate. Con Hevy Pro via chiave API, oppure gratis dal CSV esportato dall'app.
 - **Progressi**: grafico del peso con media mobile, foto di confronto, storico esercizi, livelli, streak e 18 badge.
 - **Promemoria**: pasti, acqua, allenamento, pesata, riepilogo serale.
 - **Sincronizzazione Wi-Fi**: il PC fa da "casa" dei dati, il telefono si abbina con un QR e si sincronizza da solo sulla rete di casa. Nessun server esterno.
@@ -37,12 +39,20 @@ Quando esce una nuova versione, Tigert te lo dice da solo.
 
 Telefono e PC devono essere sulla stessa rete Wi-Fi e Windows deve considerarla **rete privata**. L'installer apre già la porta nel firewall.
 
+## Importare da Hevy
+
+- **Con Hevy Pro**: su hevy.com → Impostazioni → Developer copia la chiave API, poi in Tigert: Profilo → **Importa da Hevy** → incolla la chiave → *Scarica da Hevy*. Arrivano schede e cartelle, esercizi personalizzati, tutto lo storico e le pesate.
+- **Senza Pro**: nell'app Hevy Profilo → Impostazioni → Esporta e importa dati → esporta `workout_data.csv` (e `measurement_data.csv` per le pesate), poi in Tigert *Scegli file CSV*. Le schede vengono ricostruite dagli allenamenti recenti.
+
+Prima di importare vedi l'abbinamento di ogni esercizio Hevy a quello di Tigert e puoi cambiarlo. L'import si può ripetere: gli allenamenti già importati vengono aggiornati, non duplicati.
+
 ## Privacy
 
 I dati restano sui tuoi dispositivi. Escono solo:
 - le ricerche e i codici a barre verso Open Food Facts;
 - le foto che scegli di analizzare, verso Google Gemini (solo con la chiave API);
-- il controllo aggiornamenti verso GitHub.
+- il controllo aggiornamenti verso GitHub;
+- l'import da Hevy (solo quando lo avvii tu, la chiave non viene salvata).
 
 La chiave API di Gemini resta sul dispositivo e non viene sincronizzata.
 

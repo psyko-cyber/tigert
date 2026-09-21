@@ -27,6 +27,7 @@ import 'package:tigert/ui/exercise_picker.dart';
 import 'package:tigert/ui/food_amount.dart';
 import 'package:tigert/ui/food_editor.dart';
 import 'package:tigert/ui/food_search.dart';
+import 'package:tigert/ui/hevy_import.dart';
 import 'package:tigert/ui/onboarding.dart';
 import 'package:tigert/ui/photo_estimate.dart';
 import 'package:tigert/ui/plan_editor.dart';
@@ -203,6 +204,7 @@ void main() {
     'Windows': () => const DesktopSettingsScreen(),
     'Dati': () => const DataSettingsScreen(),
     'Informazioni': () => const AboutScreen(),
+    'Importa da Hevy': () => const HevyImportScreen(),
   };
 
   const sizes = {'telefono': Size(390, 844), 'desktop': Size(1280, 800)};

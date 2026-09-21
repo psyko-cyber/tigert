@@ -11,6 +11,7 @@ import '../core/ids.dart';
 import '../data/app_state.dart';
 import '../data/models.dart';
 import '../logic/score.dart';
+import '../logic/training.dart';
 
 class _Planned {
   final int id;
@@ -147,7 +148,7 @@ class NotificationService {
         }
       }
       if (r.trainingOn && p.trainingDays.contains(day.weekday) && !(isToday && (app.sessionsByDate[key]?.isNotEmpty ?? false))) {
-        out.add(_Planned(300 + d, at(r.trainingTime), 'Allenamento', 'Oggi tocca a te: apri la scheda e inizia.'));
+        out.add(_Planned(300 + d, at(r.trainingTime), 'Allenamento', trainingReminderBody(app, day)));
       }
       if (r.weightOn && !(isToday && app.weightOn(key) != null)) {
         out.add(_Planned(400 + d, at(r.weightTime), 'Peso', 'Pesati prima di colazione: la media dei 7 giorni diventa più precisa.'));
@@ -230,7 +231,7 @@ class NotificationService {
       }
     }
     if (r.trainingOn && p.trainingDays.contains(now.weekday)) {
-      check('train',r.trainingTime, 'Allenamento', 'Oggi tocca a te: apri la scheda e inizia.', () => app.sessionsByDate[k]?.isEmpty ?? true);
+      check('train', r.trainingTime, 'Allenamento', trainingReminderBody(app, now), () => app.sessionsByDate[k]?.isEmpty ?? true);
     }
     if (r.weightOn) {
       check('weight', r.weightTime, 'Peso', 'Pesati prima di colazione.', () => app.weightOn(k) == null);

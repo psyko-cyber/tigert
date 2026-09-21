@@ -7,6 +7,7 @@ import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../data/app_state.dart';
+import 'resume_guard.dart';
 
 /// Integrazione Windows: finestra, icona nel tray, avvio con Windows e
 /// istanza unica (se riapri Tigert mentre è nel tray, si mostra quella).
@@ -86,6 +87,7 @@ class DesktopService with WindowListener, TrayListener {
     if (await windowManager.isMinimized()) await windowManager.restore();
     await windowManager.show();
     await windowManager.focus();
+    ensureResumed();
   }
 
   Future<void> quit() async {
@@ -99,6 +101,18 @@ class DesktopService with WindowListener, TrayListener {
   }
 
   // ---------------------------------------------------------------- listener
+
+  // la finestra torna visibile: riprendo a disegnare (vedi resume_guard.dart)
+  @override
+  void onWindowFocus() => ensureResumed();
+
+  @override
+  void onWindowRestore() => ensureResumed();
+
+  @override
+  void onWindowEvent(String eventName) {
+    if (eventName == 'show') ensureResumed();
+  }
 
   @override
   void onWindowClose() async {

@@ -9,6 +9,7 @@ import '../data/app_state.dart';
 import '../data/models.dart';
 import '../logic/achievements.dart';
 import '../logic/nutrition.dart';
+import '../logic/progression.dart';
 import '../logic/training.dart';
 import '../services/updates.dart';
 import 'achievements_screen.dart';
@@ -192,7 +193,10 @@ class _WorkoutCard extends StatelessWidget {
     } else if (slot != null && slot.day != null) {
       final d = slot.day!;
       title = d.name;
-      sub = '${d.items.take(4).map((i) => app.exerciseName(i.ex).split(' ').first).join(', ')} · ${d.totalSets} serie';
+      final ups = dayAdvice(app, d).where((a) => a.kind == AdviceKind.increase).length;
+      sub = ups > 0
+          ? '↑ $ups ${ups == 1 ? 'carico da alzare' : 'carichi da alzare'} · ${d.totalSets} serie'
+          : '${d.items.take(4).map((i) => app.exerciseName(i.ex).split(' ').first).join(', ')} · ${d.totalSets} serie';
       icon = Icons.fitness_center_rounded;
     } else {
       title = 'Riposo';

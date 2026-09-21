@@ -67,6 +67,7 @@ class Reminders {
   final String weightTime;
   final bool eveningOn; // riepilogo serale se mancano dati
   final String eveningTime;
+  final bool coachOn; // consigli di carico nel promemoria di allenamento
 
   const Reminders({
     required this.meals,
@@ -80,6 +81,7 @@ class Reminders {
     this.weightTime = '07:30',
     this.eveningOn = true,
     this.eveningTime = '21:30',
+    this.coachOn = true,
   });
 
   static Reminders defaults() => const Reminders(meals: [
@@ -100,6 +102,7 @@ class Reminders {
         'weightTime': weightTime,
         'eveningOn': eveningOn,
         'eveningTime': eveningTime,
+        'coachOn': coachOn,
       };
 
   factory Reminders.fromMap(Map? m) {
@@ -116,6 +119,7 @@ class Reminders {
       weightTime: _s(m['weightTime'], '07:30'),
       eveningOn: m['eveningOn'] != false,
       eveningTime: _s(m['eveningTime'], '21:30'),
+      coachOn: m['coachOn'] != false,
     );
   }
 
@@ -131,6 +135,7 @@ class Reminders {
     String? weightTime,
     bool? eveningOn,
     String? eveningTime,
+    bool? coachOn,
   }) =>
       Reminders(
         meals: meals ?? this.meals,
@@ -144,6 +149,7 @@ class Reminders {
         weightTime: weightTime ?? this.weightTime,
         eveningOn: eveningOn ?? this.eveningOn,
         eveningTime: eveningTime ?? this.eveningTime,
+        coachOn: coachOn ?? this.coachOn,
       );
 }
 

@@ -4,6 +4,7 @@ import '../core/fmt.dart';
 import '../core/ids.dart';
 import '../data/app_state.dart';
 import '../data/models.dart';
+import 'progression.dart';
 
 // =================================================================== settimana
 
@@ -36,7 +37,16 @@ List<WeekSlot> _weekSchedule(AppState s, DateTime? ref) {
   final mon = mondayOf(ref ?? DateTime.now());
   final t = today();
   final n = plan.days.length;
-  var idx = s.doneSessions.where((x) => x.planId == plan.id && fromKey(x.date).isBefore(mon)).length;
+  // si riparte dalla seduta successiva all'ultima fatta (anche se importata)
+  int after(Session x, int cur) {
+    final k = plan.days.indexWhere((d) => d.id == x.dayId);
+    return k >= 0 ? k + 1 : cur + 1;
+  }
+
+  var idx = 0;
+  for (final x in s.doneSessions) {
+    if (x.planId == plan.id && fromKey(x.date).isBefore(mon)) idx = after(x, idx);
+  }
   final out = <WeekSlot>[];
   for (var i = 0; i < 7; i++) {
     final d = mon.add(Duration(days: i));
@@ -48,7 +58,7 @@ List<WeekSlot> _weekSchedule(AppState s, DateTime? ref) {
         final day = plan.day(ss.dayId ?? '') ?? (ss.planId == plan.id ? plan.days[idx % n] : null);
         final isToday = d == t;
         out.add(WeekSlot(d, day, ss.isActive ? SlotStatus.today : (trainDay || isToday ? SlotStatus.done : SlotStatus.extra), ss));
-        if (!ss.isActive && ss.planId == plan.id) idx++;
+        if (!ss.isActive && ss.planId == plan.id) idx = after(ss, idx);
       }
       continue;
     }
@@ -75,6 +85,25 @@ WeekSlot? nextSlot(AppState s) {
     if (sl.status == SlotStatus.todo || sl.status == SlotStatus.today) return sl;
   }
   return null;
+}
+
+/// La seduta prevista in un certo giorno (anche nelle settimane successive).
+WeekSlot? slotOn(AppState s, DateTime d) {
+  final day = dateOnly(d);
+  for (final sl in weekSchedule(s, ref: day)) {
+    if (sl.date == day) return sl;
+  }
+  return null;
+}
+
+/// Testo del promemoria di allenamento, con i carichi da cambiare.
+String trainingReminderBody(AppState s, DateTime d) {
+  final sl = slotOn(s, d);
+  final day = sl?.day;
+  if (day == null) return 'Oggi tocca a te: apri la scheda e inizia.';
+  final coach = s.profile?.reminders.coachOn ?? true;
+  final sum = coach ? adviceSummary(dayAdvice(s, day)) : null;
+  return sum == null ? 'Oggi ${day.name}: apri la scheda e inizia.' : 'Oggi ${day.name}: $sum';
 }
 
 WeekSlot? todaySlot(AppState s) {
@@ -137,14 +166,14 @@ Session buildSession(AppState s, {Plan? plan, PlanDay? day, String? name}) {
 
 SessionEx buildSessionEx(AppState s, PlanItem it) {
   final ex = s.exercise(it.ex);
-  final sug = suggestFor(s, it);
+  final a = adviceFor(s, it);
   final last = s.lastPerformance(it.ex);
   final sets = <SetLog>[];
   for (var i = 0; i < it.sets; i++) {
     final prev = (last != null && i < last.$2.sets.length) ? last.$2.sets[i] : null;
     sets.add(SetLog(
-      kg: sug.kg > 0 ? sug.kg : (prev?.kg ?? 0),
-      reps: sug.increase ? it.rMin : (prev?.reps ?? it.rMin),
+      kg: a.kg > 0 ? a.kg : (prev?.kg ?? 0),
+      reps: a.kind == AdviceKind.first ? it.rMin : a.reps,
       rpe: null,
       done: false,
     ));
@@ -158,35 +187,15 @@ class Suggestion {
   final bool increase;
   final String title;
   final String text;
-  const Suggestion(this.kg, this.reps, this.increase, this.title, this.text);
+  final AdviceKind kind;
+  const Suggestion(this.kg, this.reps, this.increase, this.title, this.text, [this.kind = AdviceKind.reps]);
 }
 
-/// Doppia progressione: quando tutte le serie arrivano al tetto delle
-/// ripetizioni entro l'RPE target, si alza il carico e si riparte dal minimo.
+/// Doppia progressione (vedi progression.dart): quando tutte le serie arrivano
+/// al tetto delle ripetizioni entro l'RPE target, si alza il carico.
 Suggestion suggestFor(AppState s, PlanItem it, {int? beforeTs}) {
-  final ex = s.exercise(it.ex);
-  final last = s.lastPerformance(it.ex, beforeTs: beforeTs);
-  if (last == null) {
-    return Suggestion(0, it.rMin, false, 'Prima volta',
-        ex?.isCardio == true ? 'Scegli un ritmo sostenibile per ${it.rMin}-${it.rMax} minuti.' : 'Scegli un carico con cui arrivi a ${it.rMin}-${it.rMax} ripetizioni a RPE ${fDec(it.rpe, 1, true)}.');
-  }
-  final done = last.$2.sets.where((x) => x.done).toList();
-  final topKg = done.fold<double>(0, (a, b) => math.max(a, b.kg));
-  final atTop = done.length >= it.sets &&
-      done.every((x) => x.reps >= it.rMax && (x.rpe == null || x.rpe! <= it.rpe + 0.01));
-  if (atTop) {
-    final inc = ex?.inc ?? 2.5;
-    if (inc > 0 && ex?.isCardio != true) {
-      final kg = topKg + inc;
-      return Suggestion(kg, it.rMin, true, 'Tetto raggiunto: ${it.sets}×${it.rMax} @ RPE ${fDec(it.rpe, 1, true)}',
-          'Sali a ${fKg(kg)} kg e riparti da ${it.rMin} ripetizioni.');
-    }
-    return Suggestion(topKg, it.rMax + 1, false, 'Tetto raggiunto', 'Aggiungi una ripetizione per serie o passa a una variante più dura.');
-  }
-  final bestReps = done.where((x) => x.kg == topKg).fold<int>(0, (a, b) => math.max(a, b.reps));
-  final target = math.min(it.rMax, bestReps + 1);
-  return Suggestion(topKg, target, false, 'Obiettivo di oggi',
-      topKg > 0 ? 'Stesso carico (${fKg(topKg)} kg): punta a $target ripetizioni per serie.' : 'Punta a $target ${ex?.repsLabel ?? 'rip'} per serie.');
+  final a = adviceFor(s, it, beforeTs: beforeTs);
+  return Suggestion(a.kg, a.reps, a.kind == AdviceKind.increase, a.title, a.text, a.kind);
 }
 
 /// Suggerimento dal vivo mentre si allena: tetto raggiunto in questa sessione?

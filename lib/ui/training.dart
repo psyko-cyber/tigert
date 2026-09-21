@@ -5,7 +5,10 @@ import '../core/theme.dart';
 import '../data/app_state.dart';
 import '../data/catalog.dart';
 import '../data/models.dart';
+import '../logic/progression.dart';
 import '../logic/training.dart';
+import 'coach.dart';
+import 'hevy_import.dart';
 import 'plan_editor.dart';
 import 'session.dart';
 import 'session_summary.dart';
@@ -85,6 +88,8 @@ class TrainingScreen extends StatelessWidget {
                 startSession(context, free: true);
               case 'history':
                 push(context, const SessionHistoryScreen());
+              case 'hevy':
+                push(context, const HevyImportScreen());
             }
           },
           itemBuilder: (_) => const [
@@ -92,6 +97,7 @@ class TrainingScreen extends StatelessWidget {
             PopupMenuItem(value: 'change', child: Text('Cambia scheda')),
             PopupMenuItem(value: 'free', child: Text('Allenamento libero')),
             PopupMenuItem(value: 'history', child: Text('Storico sessioni')),
+            PopupMenuItem(value: 'hevy', child: Text('Importa da Hevy')),
           ],
         ),
       ]),
@@ -116,6 +122,7 @@ class TrainingScreen extends StatelessWidget {
         ]),
       ),
       const SizedBox(height: 14),
+      if (active == null && next?.day != null) CoachCard(day: next!.day!),
       if (active != null)
         PrimaryButton('Riprendi ${active.name}', icon: Icons.play_arrow_rounded, onTap: () => push(context, SessionScreen(sessionId: active.id)))
       else if (next?.day != null)
@@ -242,7 +249,7 @@ Future<void> showDayPreview(BuildContext context, PlanDay day) {
                 child: RowTile(
                   title: ex?.name ?? it.ex,
                   subtitle: '${it.scheme} ${ex?.repsLabel ?? 'rip'} · RPE ${fDec(it.rpe, 1, true)} · recupero ${fMinutes((it.rest / 60).round()).replaceAll(' min', "'")}'
-                      '${sug.kg > 0 ? '\n${sug.increase ? '⬆ ' : ''}${fKg(sug.kg)} kg × ${sug.reps}' : ''}',
+                      '${sug.kg > 0 ? '\n${sug.kind == AdviceKind.increase ? '↑ ' : (sug.kind == AdviceKind.lighter || sug.kind == AdviceKind.deload ? '↓ ' : '')}${fKg(sug.kg)} kg × ${sug.reps}' : ''}',
                 ),
               );
             }),

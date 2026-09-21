@@ -11,6 +11,7 @@ import 'data/local_prefs.dart';
 import 'data/store.dart';
 import 'services/desktop.dart';
 import 'services/notifications.dart';
+import 'services/resume_guard.dart';
 import 'services/services.dart';
 import 'services/sync.dart';
 
@@ -56,6 +57,7 @@ Future<void> main(List<String> args) async {
     );
     Services.desktop = d;
     await d.init();
+    installResumeGuard();
     if (prefs.serverEnabled) unawaited(sync.startServer());
   }
 

@@ -125,6 +125,12 @@ class RemindersScreen extends StatelessWidget {
           },
         ),
         _ReminderRow(
+          title: 'Consigli di carico',
+          subtitle: 'Nella notifica di allenamento: quali pesi alzare o abbassare oggi',
+          on: r.coachOn,
+          onToggle: (v) => _save(context, r.copyWith(coachOn: v)),
+        ),
+        _ReminderRow(
           title: 'Pesata',
           subtitle: 'Al mattino, a digiuno',
           time: r.weightTime,
