@@ -1,0 +1,333 @@
+import 'package:flutter/material.dart';
+
+import '../core/fmt.dart';
+import '../core/theme.dart';
+import '../data/app_state.dart';
+import '../data/catalog.dart';
+import '../data/models.dart';
+import '../logic/training.dart';
+import 'plan_editor.dart';
+import 'session.dart';
+import 'session_summary.dart';
+import 'shell.dart';
+import 'widgets.dart';
+
+/// Avvia (o riprende) una sessione per un giorno della scheda.
+Future<void> startSession(BuildContext context, {PlanDay? day, bool free = false}) async {
+  final app = context.appRead;
+  final active = app.activeSession;
+  if (active != null) {
+    final resume = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Hai una sessione in corso'),
+        content: Text('${active.name}: ${active.doneSets}/${active.plannedSets} serie fatte. Vuoi riprenderla o chiuderla e iniziarne una nuova?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Chiudi e nuova')),
+          TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('Riprendi')),
+        ],
+      ),
+    );
+    if (resume == null || !context.mounted) return;
+    if (resume) {
+      await push(context, SessionScreen(sessionId: active.id));
+      return;
+    }
+    if (active.doneSets == 0) {
+      app.deleteSession(active.id);
+    } else {
+      app.saveSession(active.copyWith(status: 'done', end: DateTime.now().millisecondsSinceEpoch));
+    }
+  }
+  final plan = app.activePlan;
+  final s = buildSession(app, plan: free ? null : plan, day: free ? null : day, name: free ? 'Allenamento libero' : null);
+  app.saveSession(s);
+  if (context.mounted) await push(context, SessionScreen(sessionId: s.id));
+}
+
+class TrainingScreen extends StatelessWidget {
+  const TrainingScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.app;
+    final t = context.tt;
+    final p = app.profile!;
+    final plan = app.activePlan;
+    if (plan == null || plan.days.isEmpty) {
+      return PageBody(children: [
+        Text('Allenamento', style: TS.h1(t).copyWith(fontSize: 24)),
+        EmptyState(
+          emoji: '🏋️',
+          title: 'Nessuna scheda',
+          body: 'Scegli uno split pronto e modificalo come vuoi, oppure parti da una scheda vuota.',
+          action: PrimaryButton('Scegli una scheda', onTap: () => chooseTemplate(context)),
+        ),
+      ]);
+    }
+    final slots = weekSchedule(app);
+    final vol = weekVolume(app);
+    final next = nextSlot(app);
+    final active = app.activeSession;
+
+    return PageBody(children: [
+      Row(children: [
+        Expanded(child: Text('Settimana ${planWeek(plan)}', style: TS.h1(t).copyWith(fontSize: 24))),
+        PopupMenuButton<String>(
+          icon: Icon(Icons.more_horiz_rounded, color: t.ink),
+          onSelected: (v) {
+            switch (v) {
+              case 'edit':
+                push(context, PlanEditorScreen(planId: plan.id));
+              case 'change':
+                chooseTemplate(context);
+              case 'free':
+                startSession(context, free: true);
+              case 'history':
+                push(context, const SessionHistoryScreen());
+            }
+          },
+          itemBuilder: (_) => const [
+            PopupMenuItem(value: 'edit', child: Text('Modifica scheda')),
+            PopupMenuItem(value: 'change', child: Text('Cambia scheda')),
+            PopupMenuItem(value: 'free', child: Text('Allenamento libero')),
+            PopupMenuItem(value: 'history', child: Text('Storico sessioni')),
+          ],
+        ),
+      ]),
+      Text('${plan.days.map((d) => d.name).join(' / ')} · ${p.trainingDays.length} giorni', style: TS.muted(t)),
+      const SizedBox(height: 16),
+      if (slots.isEmpty) const NoteBox(text: 'Nessun giorno di allenamento impostato: sceglili in Profilo → Giorni di allenamento.'),
+      for (final s in slots)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: _SlotRow(slot: s),
+        ),
+      TCard(
+        margin: const EdgeInsets.only(top: 4),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Label('Volume settimanale'),
+          const SizedBox(height: 10),
+          Row(children: [
+            _Kpi('${vol.done}', 'serie fatte'),
+            _Kpi('${vol.planned}', 'previste'),
+            _Kpi('${vol.prs}', 'record', accent: vol.prs > 0),
+          ]),
+        ]),
+      ),
+      const SizedBox(height: 14),
+      if (active != null)
+        PrimaryButton('Riprendi ${active.name}', icon: Icons.play_arrow_rounded, onTap: () => push(context, SessionScreen(sessionId: active.id)))
+      else if (next?.day != null)
+        PrimaryButton(
+          'Inizia ${next!.day!.name} · ${next.date == today() ? 'oggi' : giorni[next.date.weekday - 1].toLowerCase()}',
+          onTap: () => startSession(context, day: next.day),
+        ),
+      const SizedBox(height: 10),
+      Row(children: [
+        Expanded(child: GhostButton('Modifica scheda', dense: true, onTap: () => push(context, PlanEditorScreen(planId: plan.id)))),
+        const SizedBox(width: 10),
+        Expanded(child: GhostButton('Storico', dense: true, onTap: () => push(context, const SessionHistoryScreen()))),
+      ]),
+      const SectionLabel('Sedute della scheda'),
+      for (final d in plan.days)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: RowTile(
+            title: d.name,
+            subtitle: '${d.items.length} esercizi · ${d.totalSets} serie',
+            onTap: () => showDayPreview(context, d),
+            trailing: Icon(Icons.chevron_right_rounded, color: t.dim),
+          ),
+        ),
+    ]);
+  }
+}
+
+class _Kpi extends StatelessWidget {
+  final String v;
+  final String k;
+  final bool accent;
+  const _Kpi(this.v, this.k, {this.accent = false});
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tt;
+    return Expanded(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(v, style: TS.num(t, 22, color: accent ? t.accentInk : null)),
+        Text(k, style: TS.muted(t, 11)),
+      ]),
+    );
+  }
+}
+
+class _SlotRow extends StatelessWidget {
+  final WeekSlot slot;
+  const _SlotRow({required this.slot});
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tt;
+    final app = context.app;
+    final s = slot;
+    final isToday = s.status == SlotStatus.today;
+    final done = s.status == SlotStatus.done || s.status == SlotStatus.extra;
+    final name = s.session?.name ?? s.day?.name ?? 'Seduta saltata';
+    final sub = s.session != null
+        ? '${s.session!.doneSets}/${s.session!.plannedSets} serie · ${fInt(s.session!.volume)} kg'
+        : s.day != null
+            ? '${s.day!.items.take(4).map((i) => app.exerciseName(i.ex).split(' ').first).join(', ')} · ${s.day!.totalSets} serie'
+            : 'La seduta resta in coda per il prossimo giorno';
+    return TCard(
+      borderColor: isToday ? TC.accent : null,
+      padding: const EdgeInsets.all(14),
+      onTap: () {
+        if (s.session != null) {
+          if (s.session!.isActive) {
+            push(context, SessionScreen(sessionId: s.session!.id));
+          } else {
+            push(context, SessionSummaryScreen(sessionId: s.session!.id));
+          }
+        } else if (s.day != null) {
+          showDayPreview(context, s.day!);
+        }
+      },
+      child: Row(children: [
+        Container(
+          width: 46,
+          height: 46,
+          decoration: BoxDecoration(color: done ? TC.accent : t.surf2, borderRadius: BorderRadius.circular(12)),
+          alignment: Alignment.center,
+          child: Text(giorniSigla[s.date.weekday - 1], style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: done ? TC.onAccent : t.ink)),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(name, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: s.status == SlotStatus.missed ? t.dim : t.ink)),
+            const SizedBox(height: 2),
+            Text(sub, style: TS.muted(t, 12), maxLines: 1, overflow: TextOverflow.ellipsis),
+          ]),
+        ),
+        StatusPill(
+          s.statusLabel,
+          bg: done ? TC.accent.withValues(alpha: 0.15) : (isToday ? TC.accent : null),
+          fg: done ? t.accentInk : (isToday ? TC.onAccent : (s.status == SlotStatus.missed ? TC.danger : null)),
+        ),
+      ]),
+    );
+  }
+}
+
+/// Anteprima di una seduta con i carichi suggeriti.
+Future<void> showDayPreview(BuildContext context, PlanDay day) {
+  return showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    builder: (c) {
+      final app = c.app;
+      final t = c.tt;
+      return DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.7,
+        maxChildSize: 0.92,
+        builder: (c, sc) => ListView(controller: sc, padding: const EdgeInsets.fromLTRB(20, 0, 20, 24), children: [
+          Text(day.name, style: TS.h1(t).copyWith(fontSize: 22)),
+          Text('${day.items.length} esercizi · ${day.totalSets} serie', style: TS.muted(t)),
+          const SizedBox(height: 12),
+          for (final it in day.items) ...[
+            Builder(builder: (c) {
+              final sug = suggestFor(app, it);
+              final ex = app.exercise(it.ex);
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: RowTile(
+                  title: ex?.name ?? it.ex,
+                  subtitle: '${it.scheme} ${ex?.repsLabel ?? 'rip'} · RPE ${fDec(it.rpe, 1, true)} · recupero ${fMinutes((it.rest / 60).round()).replaceAll(' min', "'")}'
+                      '${sug.kg > 0 ? '\n${sug.increase ? '⬆ ' : ''}${fKg(sug.kg)} kg × ${sug.reps}' : ''}',
+                ),
+              );
+            }),
+          ],
+          const SizedBox(height: 8),
+          PrimaryButton('Inizia ${day.name}', onTap: () {
+            Navigator.pop(c);
+            startSession(context, day: day);
+          }),
+        ]),
+      );
+    },
+  );
+}
+
+/// Scelta di uno split pronto (crea una nuova scheda e la attiva).
+Future<void> chooseTemplate(BuildContext context) async {
+  final app = context.appRead;
+  final days = app.profile?.trainingDays.length ?? 3;
+  final suggested = suggestTemplate(days);
+  final key = await showModalBottomSheet<String>(
+    context: context,
+    isScrollControlled: true,
+    builder: (c) {
+      final t = c.tt;
+      return DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.75,
+        maxChildSize: 0.92,
+        builder: (c, sc) => ListView(controller: sc, padding: const EdgeInsets.fromLTRB(20, 0, 20, 24), children: [
+          Text('Scegli una scheda', style: TS.h1(t).copyWith(fontSize: 22)),
+          Text('Con $days giorni a settimana ti consiglio: ${suggested.name}.', style: TS.muted(t)),
+          const SizedBox(height: 12),
+          for (final tpl in splitTemplates)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: RowTile(
+                title: '${tpl.name}${tpl.key == suggested.key ? ' · consigliata' : ''}',
+                subtitle: '${tpl.desc}\n${tpl.days.map((d) => d.$1).join(' · ')}',
+                borderColor: tpl.key == suggested.key ? TC.accent : null,
+                onTap: () => Navigator.pop(c, tpl.key),
+              ),
+            ),
+          RowTile(title: 'Scheda vuota', subtitle: 'Costruisci tutto da zero con l\'editor.', onTap: () => Navigator.pop(c, 'empty')),
+        ]),
+      );
+    },
+  );
+  if (key == null || !context.mounted) return;
+  final plan = key == 'empty' ? emptyPlan() : templateByKey(key).toPlan();
+  app.savePlan(plan, activate: true);
+  if (key == 'empty' && context.mounted) push(context, PlanEditorScreen(planId: plan.id));
+}
+
+class SessionHistoryScreen extends StatelessWidget {
+  const SessionHistoryScreen({super.key});
+  @override
+  Widget build(BuildContext context) {
+    final app = context.app;
+    final t = context.tt;
+    final list = app.doneSessions.reversed.toList();
+    return SubPage(
+      title: 'Storico sessioni',
+      body: PageBody(children: [
+        if (list.isEmpty) const EmptyState(emoji: '📒', title: 'Ancora nessuna sessione', body: 'Le sessioni completate appariranno qui con volume e record.'),
+        for (final s in list)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: RowTile(
+              leading: Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(color: t.surf2, borderRadius: BorderRadius.circular(12)),
+                alignment: Alignment.center,
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  Text('${fromKey(s.date).day}', style: TS.num(t, 16)),
+                  Text(mesiBrevi[fromKey(s.date).month - 1], style: TS.muted(t, 10)),
+                ]),
+              ),
+              title: s.name,
+              subtitle: '${s.doneSets} serie · ${fInt(s.volume)} kg · ${s.duration.inMinutes} min',
+              onTap: () => push(context, SessionSummaryScreen(sessionId: s.id)),
+            ),
+          ),
+      ]),
+    );
+  }
+}
