@@ -96,13 +96,13 @@ class _AddHubScreenState extends State<AddHubScreen> {
     void addFoodRow(Food f, double g) {
       if (shown.contains(f.id)) return;
       shown.add(f.id);
-      final m = f.per(g);
+      final m = f.macroFor(g, f.cleanOpts(app.lastOpts(f.id)));
       rows.add(Padding(
         padding: const EdgeInsets.only(bottom: 8),
         child: RowTile(
           leading: FoodBadge(f.cat, name: f.name),
           title: f.displayName,
-          subtitle: '${fG(g)} ${f.unit} · ${fInt(m.kcal)} kcal${fav.contains(f.id) ? ' · ★' : ''}',
+          subtitle: '${fG(g)} ${f.qtyUnit} · ${fInt(m.kcal)} kcal${fav.contains(f.id) ? ' · ★' : ''}',
           onTap: () => _open(FoodAmountScreen(food: f, date: date, meal: meal, initialG: g)),
           trailing: PlusBadge(onTap: () {
             final e = app.entryFromFood(f, g, date: date, meal: meal);
@@ -143,8 +143,6 @@ class _AddHubScreenState extends State<AddHubScreen> {
       _Tile(Icons.photo_camera_rounded, 'Foto del piatto', 'Stima con Gemini', () => _open(PhotoScreen(date: date, meal: meal))),
       _Tile(Icons.search_rounded, 'Cerca', 'Database locale', () => _open(FoodSearchScreen(date: date, meal: meal))),
       _Tile(Icons.functions_rounded, 'Solo calorie', 'Un numero e via', () => _open(QuickAddScreen(date: date, meal: meal))),
-      _Tile(Icons.scale_rounded, 'Quantità a mano', 'Scegli e pesa', () => _open(FoodSearchScreen(date: date, meal: meal, focusSearch: true))),
-      _Tile(Icons.menu_book_rounded, 'Le mie ricette', app.recipes.isEmpty ? 'Crea la prima' : app.recipes.first.name, () => _open(RecipesScreen(date: date, meal: meal)), accent: true),
     ];
 
     final content = PageBody(children: [
@@ -157,13 +155,32 @@ class _AddHubScreenState extends State<AddHubScreen> {
       MealChips(selected: meal, onChanged: (m) => setState(() => meal = m)),
       const SizedBox(height: 16),
       GridView.count(
-        crossAxisCount: wide ? 3 : 2,
+        crossAxisCount: wide ? 4 : 2,
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         mainAxisSpacing: 10,
         crossAxisSpacing: 10,
-        childAspectRatio: wide ? 1.9 : 1.45,
+        childAspectRatio: wide ? 1.5 : 1.45,
         children: tiles,
+      ),
+      const SizedBox(height: 10),
+      TCard(
+        onTap: () => _open(RecipesScreen(date: date, meal: meal)),
+        borderColor: TC.accent.withValues(alpha: 0.7),
+        padding: const EdgeInsets.all(14),
+        child: Row(children: [
+          Icon(Icons.menu_book_rounded, size: 24, color: t.accentInk),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Le mie ricette', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: t.ink)),
+              const SizedBox(height: 2),
+              Text(app.recipes.isEmpty ? 'Crea la prima' : app.recipes.map((r) => r.name).take(3).join(' · '),
+                  style: TextStyle(fontSize: 11.5, color: t.dim, height: 1.3), maxLines: 1, overflow: TextOverflow.ellipsis),
+            ]),
+          ),
+          Icon(Icons.chevron_right_rounded, color: t.dim),
+        ]),
       ),
       SectionLabel('Preferiti e recenti',
           trailing: Tap(
@@ -184,14 +201,12 @@ class _Tile extends StatelessWidget {
   final String title;
   final String sub;
   final VoidCallback onTap;
-  final bool accent;
-  const _Tile(this.icon, this.title, this.sub, this.onTap, {this.accent = false});
+  const _Tile(this.icon, this.title, this.sub, this.onTap);
   @override
   Widget build(BuildContext context) {
     final t = context.tt;
     return TCard(
       onTap: onTap,
-      borderColor: accent ? TC.accent.withValues(alpha: 0.7) : null,
       padding: const EdgeInsets.all(14),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
         Icon(icon, size: 24, color: t.accentInk),

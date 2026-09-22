@@ -80,7 +80,11 @@ class AppState extends ChangeNotifier {
   Food? food(String? id) => id == null ? null : (userFoods[id] ?? catalog.foodById[id]);
 
   /// Unità della quantità di una voce del diario (le voci vecchie la prendono dall'alimento).
-  String entryUnit(LogEntry e) => e.ml || (e.refType == 'food' && food(e.refId)?.ml == true) ? 'ml' : 'g';
+  String entryUnit(LogEntry e) {
+    if (e.ml) return 'ml';
+    final f = e.refType == 'food' ? food(e.refId) : null;
+    return f?.qtyUnit ?? 'g';
+  }
 
   Food? foodByEan(String ean) {
     for (final f in userFoods.values) {
@@ -141,17 +145,28 @@ class AppState extends ChangeNotifier {
     return scored.take(80).map((e) => e.$1).toList();
   }
 
+  /// Ultima voce del diario per ogni alimento.
+  Map<String, LogEntry> get lastEntryByFood => _memo('lastByFood', () {
+        final m = <String, LogEntry>{};
+        for (final d in store.all('log')) {
+          final e = LogEntry.fromMap(d);
+          if (e.refType != 'food' || e.refId == null) continue;
+          final prev = m[e.refId!];
+          if (prev == null || e.ts > prev.ts) m[e.refId!] = e;
+        }
+        return m;
+      });
+
+  /// Scelte dell'ultima volta per un alimento (cottura, condimento, formaggio).
+  FoodOpts lastOpts(String foodId) => lastEntryByFood[foodId]?.opts ?? FoodOpts.none;
+
   /// Ultimi alimenti usati (unici) con l'ultima quantità.
   List<(Food, double)> recentFoods({int limit = 12}) => _memo('recent$limit', () {
-        final entries = store.all('log').map(LogEntry.fromMap).where((e) => e.refType == 'food' && e.refId != null).toList()
-          ..sort((a, b) => b.ts.compareTo(a.ts));
+        final entries = lastEntryByFood.values.toList()..sort((a, b) => b.ts.compareTo(a.ts));
         final out = <(Food, double)>[];
-        final seen = <String>{};
         for (final e in entries) {
-          if (seen.contains(e.refId)) continue;
           final f = food(e.refId);
           if (f == null) continue;
-          seen.add(e.refId!);
           out.add((f, e.g ?? 100));
           if (out.length >= limit) break;
         }
@@ -200,8 +215,10 @@ class AppState extends ChangeNotifier {
   void updateEntry(LogEntry e) => store.put('log', e.id, e.toMap());
   void deleteEntry(String id) => store.remove('log', id);
 
-  LogEntry entryFromFood(Food f, double g, {required String date, required String meal}) {
-    final m = f.per(g);
+  /// Senza [opts] usa le scelte dell'ultima volta per quell'alimento.
+  LogEntry entryFromFood(Food f, double g, {required String date, required String meal, FoodOpts? opts}) {
+    final o = f.cleanOpts(opts ?? lastOpts(f.id));
+    final m = f.macroFor(g, o);
     return LogEntry(
       id: newId(),
       date: date,
@@ -216,6 +233,7 @@ class AppState extends ChangeNotifier {
       refType: 'food',
       refId: f.id,
       ts: DateTime.now().millisecondsSinceEpoch,
+      opts: o,
     );
   }
 
@@ -270,10 +288,40 @@ class AppState extends ChangeNotifier {
           refType: e.refType,
           refId: e.refId,
           ts: ts++,
+          opts: e.opts,
         );
         addEntry(n);
       }
     });
+  }
+
+  /// Primi piatti che fino alla v1.2.0 si pesavano nel piatto e ora da crudi.
+  static const _rawDishes = {
+    's:pasta-al-pomodoro',
+    's:pasta-al-ragu',
+    's:pasta-al-pesto',
+    's:pasta-alla-carbonara',
+    's:risotto-ai-funghi',
+    's:riso-cantonese',
+  };
+
+  /// Ricalcola le voci di quei piatti come peso da crudo (l'utente pesava già
+  /// la pasta cruda). Una volta sola per dispositivo; ritorna le voci cambiate.
+  int migrateRawDishes() {
+    if (prefs.get<bool>('rawDishes13') == true) return 0;
+    var n = 0;
+    store.batch(() {
+      for (final e in store.all('log').map(LogEntry.fromMap).toList()) {
+        final f = e.refType == 'food' && _rawDishes.contains(e.refId) ? food(e.refId) : null;
+        if (f == null || e.g == null) continue;
+        final m = f.macroFor(e.g!, e.opts);
+        if ((m.kcal - e.kcal).abs() < 0.5) continue;
+        updateEntry(e.copyWith(kcal: m.kcal, p: m.p, c: m.c, f: m.f));
+        n++;
+      }
+    });
+    prefs.set('rawDishes13', true);
+    return n;
   }
 
   // ================================================================ peso

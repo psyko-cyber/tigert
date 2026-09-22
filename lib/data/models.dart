@@ -356,6 +356,55 @@ class Portion {
   factory Portion.fromMap(Map m) => Portion(_s(m['l']), _d(m['g']));
 }
 
+/// Ingrediente di un piatto composto: [r] grammi per ogni grammo della base
+/// (la prima parte è la base, con r = 1). Valori per 100 g.
+/// [opt]: facoltativo (es. parmigiano), escluso dai valori di default del piatto.
+class DishPart {
+  final String name;
+  final double r;
+  final double kcal, p, c, f;
+  final bool opt;
+  const DishPart(this.name, this.r, this.kcal, this.p, this.c, this.f, {this.opt = false});
+  Macro per(double g) => Macro(kcal, p, c, f).scale(g / 100);
+  Map<String, dynamic> toMap() => {'n': name, 'r': r, 'k': kcal, 'p': p, 'c': c, 'f': f, if (opt) 'o': true};
+  factory DishPart.fromMap(Map m) => DishPart(_s(m['n']), _d(m['r'], 1), _d(m['k']), _d(m['p']), _d(m['c']), _d(m['f']), opt: m['o'] == true);
+}
+
+/// Quanto condimento: la stima del piatto moltiplicata per il fattore.
+const sauceLevels = [(0.6, 'Poco'), (1.0, 'Normale'), (1.5, 'Tanto')];
+
+/// Cottura degli alimenti con [Food.cook]: '' senza olio, 'olio' con olio, 'fritto'.
+const cookLabels = {'': 'Senza olio', 'olio': 'Con olio', 'fritto': 'Fritto'};
+
+/// Olio assorbito, in grammi per grammo di alimento crudo.
+double cookOil(String cat, String cook) {
+  final veg = cat == 'Verdure';
+  return switch (cook) {
+    'olio' => veg ? 0.08 : 0.05,
+    'fritto' => veg ? 0.15 : 0.10,
+    _ => 0,
+  };
+}
+
+/// Olio extravergine per 100 g.
+const _oil = Macro(899, 0, 0, 99.9);
+
+/// Scelte fatte sulla scheda alimento: condimento, formaggio, cottura.
+class FoodOpts {
+  final double sauce;
+  final bool extra;
+  final String cook;
+  const FoodOpts({this.sauce = 1, this.extra = false, this.cook = ''});
+  static const none = FoodOpts();
+}
+
+/// Scelte in breve per il diario, es. " · fritto" o " · tanto condimento".
+String optsLabel(FoodOpts o) => [
+      if (o.cook.isNotEmpty && cookLabels.containsKey(o.cook)) cookLabels[o.cook]!.toLowerCase(),
+      if (o.sauce < 1) 'poco condimento' else if (o.sauce > 1) 'tanto condimento',
+      if (o.extra) 'con formaggio',
+    ].map((s) => ' · $s').join();
+
 class Food {
   final String id;
   final String name;
@@ -366,6 +415,11 @@ class Food {
   final List<Portion> portions;
   final String src; // seed | user | off | photo
   final bool ml; // liquido: quantità in ml (1 ml = 1 g, valori per 100 ml)
+  /// Piatto composto: la quantità è il peso da crudo della base (es. "pasta cruda")
+  /// e i valori sono per 100 g di base, condimento stimato compreso ([parts]).
+  final String? base;
+  final List<DishPart> parts;
+  final bool cook; // si cuoce: scelta senza olio / con olio / fritto
 
   const Food({
     required this.id,
@@ -381,12 +435,47 @@ class Food {
     this.portions = const [],
     this.src = 'user',
     this.ml = false,
+    this.base,
+    this.parts = const [],
+    this.cook = false,
   });
 
   Macro per(double grams) => Macro(kcal, p, c, f).scale(grams / 100);
+
+  /// Valori con le scelte della scheda (condimento, formaggio, olio di cottura).
+  Macro macroFor(double grams, [FoodOpts o = FoodOpts.none]) {
+    if (isDish) {
+      return partsFor(grams, o).fold(Macro.zero, (a, e) => a + e.$1.per(e.$2));
+    }
+    final oil = cook ? cookOil(cat, o.cook) * grams : 0.0;
+    return per(grams) + _oil.scale(oil / 100);
+  }
+
+  /// Grammi di olio di cottura stimati per [grams] di alimento.
+  double oilFor(double grams, String cookMode) => cook ? cookOil(cat, cookMode) * grams : 0;
+
+  /// Tiene solo le scelte che valgono per questo alimento.
+  FoodOpts cleanOpts(FoodOpts o) => FoodOpts(
+        sauce: isDish ? o.sauce : 1,
+        extra: isDish && extraPart != null && o.extra,
+        cook: cook ? o.cook : '',
+      );
   String get displayName => brand == null || brand!.isEmpty ? name : '$name · $brand';
   bool get isSeed => src == 'seed';
   String get unit => ml ? 'ml' : 'g';
+  bool get isDish => base != null && parts.isNotEmpty;
+
+  /// Unità della quantità, es. "g", "ml" o "g pasta cruda".
+  String get qtyUnit => base == null ? unit : '$unit $base';
+
+  /// Parte facoltativa del piatto (es. parmigiano), se c'è.
+  DishPart? get extraPart => parts.where((x) => x.opt).firstOrNull;
+
+  /// Grammi di ogni ingrediente per [g] grammi di base (i facoltativi solo se scelti).
+  List<(DishPart, double)> partsFor(double g, [FoodOpts o = FoodOpts.none]) => [
+        for (var i = 0; i < parts.length; i++)
+          if (!parts[i].opt || o.extra) (parts[i], g * parts[i].r * (i == 0 || parts[i].opt ? 1 : o.sauce)),
+      ];
 
   Map<String, dynamic> toMap() => {
         'n': name,
@@ -401,6 +490,9 @@ class Food {
         'por': portions.map((e) => e.toMap()).toList(),
         'src': src,
         'ml': ml,
+        if (base != null) 'base': base,
+        if (parts.isNotEmpty) 'parts': parts.map((e) => e.toMap()).toList(),
+        if (cook) 'ck': true,
       };
 
   factory Food.fromMap(Map m, {String? src}) => Food(
@@ -417,6 +509,9 @@ class Food {
         portions: ((m['por'] as List?) ?? const []).map((e) => Portion.fromMap(e as Map)).toList(),
         src: src ?? _s(m['src'], 'user'),
         ml: m['ml'] is bool ? m['ml'] as bool : isLiquidFood(_s(m['n']), _s(m['cat'])),
+        base: m['base'] as String?,
+        parts: ((m['parts'] as List?) ?? const []).map((e) => DishPart.fromMap(e as Map)).toList(),
+        cook: m['ck'] == true,
       );
 
   Food copyWith({String? id, String? name, String? brand, String? ean, double? kcal, double? p, double? c, double? f, List<Portion>? portions, String? src, String? cat, bool? ml}) => Food(
@@ -433,6 +528,9 @@ class Food {
         portions: portions ?? this.portions,
         src: src ?? this.src,
         ml: ml ?? this.ml,
+        base: base,
+        parts: parts,
+        cook: cook,
       );
 }
 
@@ -515,6 +613,7 @@ class LogEntry {
   final String? refId;
   final String? photoId;
   final int ts;
+  final FoodOpts opts; // condimento, formaggio e cottura scelti (alimenti)
 
   const LogEntry({
     required this.id,
@@ -532,6 +631,7 @@ class LogEntry {
     this.refId,
     this.photoId,
     required this.ts,
+    this.opts = FoodOpts.none,
   });
 
   Macro get macro => Macro(kcal, p, c, f);
@@ -551,6 +651,9 @@ class LogEntry {
         'ref': refId,
         'photo': photoId,
         'ts': ts,
+        if (opts.sauce != 1) 'sx': opts.sauce,
+        if (opts.extra) 'ex': true,
+        if (opts.cook.isNotEmpty) 'ck': opts.cook,
       };
 
   factory LogEntry.fromMap(Map m) => LogEntry(
@@ -569,9 +672,10 @@ class LogEntry {
         refId: m['ref'] as String?,
         photoId: m['photo'] as String?,
         ts: _i(m['ts']),
+        opts: FoodOpts(sauce: _d(m['sx'], 1), extra: m['ex'] == true, cook: _s(m['ck'])),
       );
 
-  LogEntry copyWith({String? meal, String? date, double? g, double? servings, double? kcal, double? p, double? c, double? f, String? name}) => LogEntry(
+  LogEntry copyWith({String? meal, String? date, double? g, double? servings, double? kcal, double? p, double? c, double? f, String? name, FoodOpts? opts}) => LogEntry(
         id: id,
         date: date ?? this.date,
         meal: meal ?? this.meal,
@@ -587,6 +691,7 @@ class LogEntry {
         refId: refId,
         photoId: photoId,
         ts: ts,
+        opts: opts ?? this.opts,
       );
 }
 

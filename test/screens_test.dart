@@ -188,6 +188,7 @@ void main() {
     'Aggiungi': () => const AddHubScreen(embedded: true),
     'Cerca': () => FoodSearchScreen(date: todayKey(), meal: 'pranzo', focusSearch: false),
     'Quantità': () => FoodAmountScreen(food: chicken, date: todayKey(), meal: 'pranzo'),
+    'Quantità piatto': () => FoodAmountScreen(food: app.catalog.foodById['s:pasta-al-ragu']!, date: todayKey(), meal: 'cena'),
     'Editor alimento': () => const FoodEditorScreen(),
     'Solo calorie': () => QuickAddScreen(date: todayKey(), meal: 'pranzo'),
     'Ricette': () => RecipesScreen(date: todayKey(), meal: 'pranzo'),

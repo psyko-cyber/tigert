@@ -40,6 +40,8 @@ class _FoodAmountScreenState extends State<FoodAmountScreen> {
   late double g = widget.editEntry?.g ?? widget.initialG ?? (widget.food.portions.isNotEmpty ? widget.food.portions.first.g : 100);
   late String meal = widget.editEntry?.meal ?? widget.meal;
   late Food food = widget.food;
+  // condimento, formaggio e cottura: quelli della voce o dell'ultima volta
+  late FoodOpts opts = widget.pickMode ? FoodOpts.none : (widget.editEntry?.opts ?? context.appRead.lastOpts(widget.food.id));
 
   void _set(double v) => setState(() => g = v.clamp(0, 5000).toDouble());
 
@@ -47,7 +49,10 @@ class _FoodAmountScreenState extends State<FoodAmountScreen> {
   Widget build(BuildContext context) {
     final app = context.app;
     final t = context.tt;
-    final m = food.per(g);
+    final o = food.cleanOpts(opts);
+    final m = food.macroFor(g, o);
+    final oil = food.oilFor(g, o.cook);
+    final extra = food.extraPart;
     final fav = app.favorites.contains(food.id);
     final step = widget.productStyle ? 25.0 : 10.0;
     final u = food.unit;
@@ -57,6 +62,7 @@ class _FoodAmountScreenState extends State<FoodAmountScreen> {
         if (!food.portions.any((p) => p.g == v)) ('${fG(v)} $u', v),
     ];
     final edit = widget.editEntry != null;
+    final qtyTitle = food.base != null ? 'Peso ${food.base}' : (food.cook ? 'Peso da crudo' : 'Quantità');
 
     return SubPage(
       title: food.name,
@@ -92,12 +98,11 @@ class _FoodAmountScreenState extends State<FoodAmountScreen> {
                   }
                   if (edit) {
                     final e = widget.editEntry!;
-                    final mm = food.per(g);
-                    app.updateEntry(e.copyWith(g: g, meal: meal, kcal: mm.kcal, p: mm.p, c: mm.c, f: mm.f, name: food.displayName));
+                    app.updateEntry(e.copyWith(g: g, meal: meal, kcal: m.kcal, p: m.p, c: m.c, f: m.f, name: food.displayName, opts: o));
                     Navigator.pop(context);
                     return;
                   }
-                  final e = app.entryFromFood(food, g, date: widget.date, meal: meal);
+                  final e = app.entryFromFood(food, g, date: widget.date, meal: meal, opts: o);
                   app.addEntry(e);
                   Navigator.pop(context, e);
                 },
@@ -127,12 +132,12 @@ class _FoodAmountScreenState extends State<FoodAmountScreen> {
         const SizedBox(height: 12),
         TCard(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Label(widget.productStyle ? 'Porzione' : 'Quantità'),
+            Label(widget.productStyle ? 'Porzione' : qtyTitle),
             const SizedBox(height: 6),
             Tap(
               radius: 8,
               onTap: () async {
-                final v = await askNumber(context, title: 'Quantità', initial: g, unit: u, decimals: 0, max: 5000);
+                final v = await askNumber(context, title: qtyTitle, initial: g, unit: u, decimals: 0, max: 5000);
                 if (v != null) _set(v);
               },
               child: Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
@@ -165,13 +170,55 @@ class _FoodAmountScreenState extends State<FoodAmountScreen> {
             ]),
           ]),
         ),
+        if (!widget.pickMode && food.isDish) ...[
+          const SizedBox(height: 12),
+          TCard(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Label('Condimento'),
+              const SizedBox(height: 10),
+              Wrap(spacing: 8, runSpacing: 8, children: [
+                for (final (k, l) in sauceLevels) PillChip(l, selected: o.sauce == k, onTap: () => setState(() => opts = FoodOpts(sauce: k, extra: o.extra, cook: o.cook))),
+              ]),
+              if (extra != null) ...[
+                const SizedBox(height: 6),
+                Row(children: [
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('Con ${extra.name.toLowerCase()}', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                      Text('+${fG(g * extra.r)} g', style: TS.muted(t, 12)),
+                    ]),
+                  ),
+                  Switch(value: o.extra, onChanged: (v) => setState(() => opts = FoodOpts(sauce: o.sauce, extra: v, cook: o.cook))),
+                ]),
+              ],
+            ]),
+          ),
+        ],
+        if (!widget.pickMode && food.cook) ...[
+          const SizedBox(height: 12),
+          TCard(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Label('Cottura'),
+              const SizedBox(height: 10),
+              Wrap(spacing: 8, runSpacing: 8, children: [
+                for (final MapEntry(key: k, value: l) in cookLabels.entries)
+                  PillChip(l, selected: o.cook == k, onTap: () => setState(() => opts = FoodOpts(sauce: o.sauce, extra: o.extra, cook: k))),
+              ]),
+              const SizedBox(height: 8),
+              Text(oil > 0 ? '+${fG(oil)} g di olio stimato (${fInt(oil * 8.99)} kcal)' : 'Crudo, lesso, alla griglia o al forno senza olio', style: TS.muted(t, 12.5)),
+            ]),
+          ),
+        ],
         const SizedBox(height: 12),
         TCard(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              Expanded(child: Text('Calcolato su ${fG(g)} $u', style: TS.muted(t))),
-              Text('${fInt(food.kcal)} kcal / 100 $u', style: TS.muted(t, 12)),
-            ]),
+            if (food.isDish)
+              Text('Calcolato su ${fG(g)} g di ${food.base} + condimento', style: TS.muted(t))
+            else
+              Row(children: [
+                Expanded(child: Text('Calcolato su ${fG(g)} $u', style: TS.muted(t))),
+                Text('${fInt(food.kcal)} kcal / 100 $u', style: TS.muted(t, 12)),
+              ]),
             const SizedBox(height: 2),
             BigNumber(fInt(m.kcal), unit: 'kcal', size: 38),
             const SizedBox(height: 12),
@@ -182,8 +229,21 @@ class _FoodAmountScreenState extends State<FoodAmountScreen> {
               const SizedBox(width: 10),
               _Tile('G', '${fDec(m.f, 1)} g', TC.fat),
             ]),
+            if (food.isDish) ...[
+              const SizedBox(height: 12),
+              for (final (x, gg) in food.partsFor(g, o))
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 3),
+                  child: Row(children: [
+                    Expanded(child: Text(x.name, style: TS.body(t), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                    Text('${fG(gg)} g · ${fInt(x.per(gg).kcal)} kcal', style: TS.muted(t)),
+                  ]),
+                ),
+            ],
           ]),
         ),
+        if (food.isDish && !widget.pickMode)
+          const NoteBox(text: 'Inserisci il peso da crudo: il condimento è stimato in proporzione e lo regoli con Poco, Normale o Tanto.'),
         if (!widget.pickMode) ...[
           const SectionLabel('Pasto'),
           MealChips(selected: meal, onChanged: (v) => setState(() => meal = v)),

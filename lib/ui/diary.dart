@@ -185,7 +185,7 @@ class _MealCard extends StatelessWidget {
                 ],
                 Expanded(
                   child: Text(
-                    e.g == null ? e.name : '${e.name} ${e.refType == 'recipe' ? '· ${fDec(e.servings, 2, true)} porz.' : '${fG(e.g!)} ${app.entryUnit(e)}'}',
+                    e.g == null ? e.name : '${e.name} ${e.refType == 'recipe' ? '· ${fDec(e.servings, 2, true)} porz.' : '${fG(e.g!)} ${app.entryUnit(e)}${optsLabel(e.opts)}'}',
                     style: TextStyle(fontSize: 13, color: t.soft),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,

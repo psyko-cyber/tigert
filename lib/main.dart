@@ -30,6 +30,7 @@ Future<void> main(List<String> args) async {
   await prefs.init(store.root);
   final catalog = await Catalog.load();
   final app = AppState(store, prefs, catalog);
+  app.migrateRawDishes();
 
   final sync = SyncService(app);
   final notif = NotificationService(app);

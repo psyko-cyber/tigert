@@ -119,7 +119,9 @@ class _FoodSearchScreenState extends State<FoodSearchScreen> {
           child: RowTile(
             leading: FoodBadge(f.cat, name: f.name),
             title: f.displayName,
-            subtitle: '${fInt(f.kcal)} kcal/100 g · P ${fDec(f.p, 1, true)} · C ${fDec(f.c, 1, true)} · G ${fDec(f.f, 1, true)}',
+            subtitle: f.isDish
+                ? '${fInt(f.kcal)} kcal ogni 100 g di ${f.base}, condimento compreso'
+                : '${fInt(f.kcal)} kcal/100 ${f.unit} · P ${fDec(f.p, 1, true)} · C ${fDec(f.c, 1, true)} · G ${fDec(f.f, 1, true)}',
             onTap: () => _openFood(f),
             trailing: PlusBadge(onTap: () => _quickAdd(f)),
           ),

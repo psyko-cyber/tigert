@@ -31,6 +31,7 @@ class _FoodEditorScreenState extends State<FoodEditorScreen> {
   late final portionLabel = TextEditingController(text: widget.food?.portions.isNotEmpty == true ? widget.food!.portions.first.label : '');
   late final portionG = TextEditingController(text: widget.food?.portions.isNotEmpty == true ? _v(widget.food!.portions.first.g) : '');
   late bool ml = widget.food?.ml ?? isLiquidFood(widget.initialName ?? '', '');
+  late bool cook = widget.food?.cook ?? false;
   String? error;
 
   static String _v(double? x) => x == null || x == 0 ? '' : fDec(x, 1, true).replaceAll('.', '');
@@ -55,6 +56,10 @@ class _FoodEditorScreenState extends State<FoodEditorScreen> {
     }
     final pg = parseNum(portionG.text);
     final editing = widget.food != null && !widget.copy && !widget.food!.isSeed;
+    final old = widget.food;
+    final pp = parseNum(p.text) ?? 0, cc = parseNum(c.text) ?? 0, ff = parseNum(f.text) ?? 0;
+    // la composizione del piatto resta valida solo se i valori non cambiano
+    final sameValues = old != null && (old.kcal - k).abs() < 0.5 && (old.p - pp).abs() < 0.05 && (old.c - cc).abs() < 0.05 && (old.f - ff).abs() < 0.05;
     final food = Food(
       id: editing ? widget.food!.id : 'u:${newId()}',
       name: n,
@@ -69,6 +74,9 @@ class _FoodEditorScreenState extends State<FoodEditorScreen> {
       portions: pg != null && pg > 0 ? [Portion(portionLabel.text.trim().isEmpty ? 'porzione' : portionLabel.text.trim(), pg)] : const [],
       src: editing ? widget.food!.src : 'user',
       ml: ml,
+      base: old?.base,
+      parts: sameValues ? old.parts : const [],
+      cook: cook,
     );
     app.saveFood(food);
     Navigator.pop(context, food);
@@ -125,7 +133,19 @@ class _FoodEditorScreenState extends State<FoodEditorScreen> {
           ),
           Switch(value: ml, onChanged: (v) => setState(() => ml = v)),
         ]),
-        SectionLabel('Valori per 100 ${ml ? 'ml' : 'g'} (dall\'etichetta)'),
+        if (widget.food?.base == null)
+          Row(children: [
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('Si cuoce', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                Text('Scegli la cottura: senza olio, con olio o fritto', style: TS.muted(t, 12)),
+              ]),
+            ),
+            Switch(value: cook, onChanged: (v) => setState(() => cook = v)),
+          ]),
+        SectionLabel(widget.food?.base != null
+            ? 'Valori per 100 g di ${widget.food!.base}, condimento compreso'
+            : 'Valori per 100 ${ml ? 'ml' : 'g'} (dall\'etichetta)'),
         _num('Energia', kcal, suffix: 'kcal'),
         if (kcal.text.isEmpty && _computed > 0)
           Padding(
