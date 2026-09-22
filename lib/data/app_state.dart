@@ -79,6 +79,9 @@ class AppState extends ChangeNotifier {
 
   Food? food(String? id) => id == null ? null : (userFoods[id] ?? catalog.foodById[id]);
 
+  /// Unità della quantità di una voce del diario (le voci vecchie la prendono dall'alimento).
+  String entryUnit(LogEntry e) => e.ml || (e.refType == 'food' && food(e.refId)?.ml == true) ? 'ml' : 'g';
+
   Food? foodByEan(String ean) {
     for (final f in userFoods.values) {
       if (f.ean == ean) return f;
@@ -205,6 +208,7 @@ class AppState extends ChangeNotifier {
       meal: meal,
       name: f.displayName,
       g: g,
+      ml: f.ml,
       kcal: m.kcal,
       p: m.p,
       c: m.c,
@@ -257,6 +261,7 @@ class AppState extends ChangeNotifier {
           meal: meal,
           name: e.name,
           g: e.g,
+          ml: e.ml,
           servings: e.servings,
           kcal: e.kcal,
           p: e.p,
@@ -347,6 +352,7 @@ class AppState extends ChangeNotifier {
   }
 
   void savePlan(Plan p, {bool activate = false}) {
+    p = p.normalized();
     store.batch(() {
       store.put('plans', p.id, p.toMap());
       final pr = profile;
@@ -354,7 +360,15 @@ class AppState extends ChangeNotifier {
     });
   }
 
-  void deletePlan(String id) => store.remove('plans', id);
+  /// Elimina una scheda. Se era quella attiva ne attiva un'altra ([activate]) o la prima rimasta.
+  void deletePlan(String id, {String? activate}) {
+    store.batch(() {
+      final wasActive = activePlan?.id == id;
+      store.remove('plans', id);
+      final pr = profile;
+      if (wasActive && pr != null && activate != null) saveProfile(pr.copyWith(planId: activate));
+    });
+  }
 
   // ================================================================ sessioni
 
@@ -393,7 +407,7 @@ class AppState extends ChangeNotifier {
     for (final s in doneSessions.reversed) {
       if (beforeTs != null && s.start >= beforeTs) continue;
       for (final e in s.items) {
-        if (e.ex == exId && e.doneSets > 0) return (s, e);
+        if (e.ex == exId && e.workDone.isNotEmpty) return (s, e);
       }
     }
     return null;

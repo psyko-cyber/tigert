@@ -770,6 +770,8 @@ void toast(BuildContext context, String msg, {String? action, VoidCallback? onAc
     SnackBar(
       content: Text(msg),
       duration: const Duration(seconds: 3),
+      // con un'action Flutter la renderebbe persistente (resta finché non la tocchi)
+      persist: false,
       action: action == null ? null : SnackBarAction(label: action, textColor: TC.accent, onPressed: onAction ?? () {}),
     ),
   );

@@ -117,7 +117,7 @@ class _FoodSearchScreenState extends State<FoodSearchScreen> {
     Widget foodRow(Food f) => Padding(
           padding: const EdgeInsets.only(bottom: 8),
           child: RowTile(
-            leading: FoodBadge(f.cat),
+            leading: FoodBadge(f.cat, name: f.name),
             title: f.displayName,
             subtitle: '${fInt(f.kcal)} kcal/100 g · P ${fDec(f.p, 1, true)} · C ${fDec(f.c, 1, true)} · G ${fDec(f.f, 1, true)}',
             onTap: () => _openFood(f),

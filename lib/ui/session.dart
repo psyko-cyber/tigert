@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -13,6 +14,7 @@ import '../logic/training.dart';
 import '../services/services.dart';
 import 'exercise_picker.dart';
 import 'plan_editor.dart';
+import 'reorder.dart';
 import 'session_summary.dart';
 import 'shell.dart';
 import 'widgets.dart';
@@ -113,9 +115,41 @@ class _SessionScreenState extends State<SessionScreen> {
     _save(ns);
     if (done) {
       HapticFeedback.mediumImpact();
-      final allDone = ns.items[ei].sets.every((x) => x.done);
-      if (!allDone || ei < ns.items.length - 1) _startRest(e.target.rest);
+      _restAfter(ns.items[ei], si, last: ei == ns.items.length - 1);
     }
+  }
+
+  /// Recupero dopo una serie: niente prima di un dropset, breve dopo un avvicinamento.
+  void _restAfter(SessionEx e, int si, {required bool last}) {
+    final sets = e.sets;
+    final next = sets.indexWhere((x) => !x.done);
+    if (next < 0 && last) return;
+    if (next >= 0 && sets[next].isDrop) return;
+    _startRest(sets[si].isWarmup ? math.min(e.target.rest, 60) : e.target.rest);
+  }
+
+  Future<void> _pickType(Session s, int ei, int si) async {
+    final cur = s.items[ei].sets[si];
+    final t = await showModalBottomSheet<String>(
+      context: context,
+      builder: (_) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          for (final (k, badge, sub) in const [
+            (setWork, '1', 'Conta per coach, record e volume'),
+            (setWarmup, 'A', 'Riscaldamento prima delle allenanti: non conta'),
+            (setDrop, 'D', 'Scalata subito dopo una serie: conta nel volume, non nei record'),
+          ])
+            ListTile(
+              leading: _TypeBadge(badge, type: k, selected: cur.t == k),
+              title: Text(setTypeName(k)),
+              subtitle: Text(sub),
+              onTap: () => Navigator.pop(context, k),
+            ),
+        ]),
+      ),
+    );
+    if (t == null || t == cur.t) return;
+    _save(_updateSet(s, ei, si, cur.copyWith(t: t)));
   }
 
   Future<void> _editSet(Session s, int ei, int si) async {
@@ -124,23 +158,23 @@ class _SessionScreenState extends State<SessionScreen> {
     final r = await showModalBottomSheet<(SetLog, bool)>(
       context: context,
       isScrollControlled: true,
-      builder: (_) => _SetSheet(set: e.sets[si], index: si, ex: ex, target: e.target),
+      builder: (_) => _SetSheet(set: e.sets[si], badge: setBadge(e.sets, si), ex: ex, target: e.target),
     );
     if (r == null) return;
     final (v, markDone) = r;
     var ns = s;
     final old = e.sets[si];
     ns = _updateSet(ns, ei, si, v.copyWith(done: markDone ? true : v.done));
-    // propaga carico e ripetizioni alle serie successive non ancora fatte
+    // propaga carico e ripetizioni alle serie successive dello stesso tipo non ancora fatte
     for (var j = si + 1; j < e.sets.length; j++) {
       final o = e.sets[j];
-      if (o.done) continue;
+      if (o.done || o.t != old.t) continue;
       ns = _updateSet(ns, ei, j, o.copyWith(kg: o.kg == old.kg ? v.kg : o.kg, reps: o.reps == old.reps ? v.reps : o.reps));
     }
     _save(ns);
     if (markDone && !old.done) {
       HapticFeedback.mediumImpact();
-      _startRest(e.target.rest);
+      _restAfter(ns.items[ei], si, last: ei == ns.items.length - 1);
     }
   }
 
@@ -166,6 +200,27 @@ class _SessionScreenState extends State<SessionScreen> {
     app.prefs.restEndsAt = null;
     app.deleteSession(s.id);
     if (mounted) Navigator.pop(context);
+  }
+
+  /// Riordina (o togli) gli esercizi di questa sessione trascinandoli.
+  Future<void> _reorder(Session s) async {
+    final keys = await push<List<String>>(
+      context,
+      ReorderScreen(entries: [
+        for (var i = 0; i < s.items.length; i++)
+          ReorderEntry('$i', s.items[i].name, '${s.items[i].doneSets}/${s.items[i].plannedSets} serie${i == s.current ? ' · in corso' : ''}'),
+      ]),
+    );
+    if (keys == null || !mounted) return;
+    final order = keys.map(int.parse).toList();
+    final lost = [for (var i = 0; i < s.items.length; i++) if (!order.contains(i) && s.items[i].sets.any((x) => x.done)) s.items[i].name];
+    if (lost.isNotEmpty &&
+        !await confirm(context, title: 'Togliere ${lost.join(', ')}?', body: 'Le serie già fatte di questi esercizi verranno perse.', ok: 'Togli', danger: true)) {
+      return;
+    }
+    final cur = order.indexOf(s.current);
+    final current = cur >= 0 ? cur : s.current.clamp(0, order.isEmpty ? 0 : order.length - 1);
+    _save(s.copyWith(items: [for (final i in order) s.items[i]], current: current));
   }
 
   Future<void> _addExercise(Session s) async {
@@ -212,7 +267,8 @@ class _SessionScreenState extends State<SessionScreen> {
     String primaryLabel;
     VoidCallback primaryAction;
     if (nextIdx >= 0) {
-      primaryLabel = 'Serie ${nextIdx + 1} fatta';
+      final n = e.sets[nextIdx];
+      primaryLabel = n.isWarmup ? 'Avvicinamento fatto' : (n.isDrop ? 'Dropset fatto' : 'Serie ${setBadge(e.sets, nextIdx)} fatta');
       primaryAction = () => _markDone(s, ei, nextIdx);
     } else if (ei < s.items.length - 1) {
       primaryLabel = 'Prossimo esercizio';
@@ -235,6 +291,8 @@ class _SessionScreenState extends State<SessionScreen> {
             switch (v) {
               case 'add':
                 _addExercise(s);
+              case 'reorder':
+                _reorder(s);
               case 'finish':
                 _finish(s);
               case 'discard':
@@ -243,6 +301,7 @@ class _SessionScreenState extends State<SessionScreen> {
           },
           itemBuilder: (_) => const [
             PopupMenuItem(value: 'add', child: Text('Aggiungi esercizio')),
+            PopupMenuItem(value: 'reorder', child: Text('Riordina esercizi')),
             PopupMenuItem(value: 'finish', child: Text('Termina sessione')),
             PopupMenuItem(value: 'discard', child: Text('Annulla sessione')),
           ],
@@ -302,13 +361,14 @@ class _SessionScreenState extends State<SessionScreen> {
             ),
             for (var i = 0; i < e.sets.length; i++)
               _SetRow(
-                index: i,
+                badge: setBadge(e.sets, i),
                 set: e.sets[i],
                 cardio: cardio,
                 isNext: i == nextIdx,
-                prev: prev != null && i < prev.$2.sets.length ? prevLabel(prev.$2.sets[i], ex) : '—',
+                prev: _prevLabel(prev, e.sets, i, ex),
                 onTap: () => _editSet(s, ei, i),
                 onToggle: () => _markDone(s, ei, i, done: !e.sets[i].done),
+                onType: () => _pickType(s, ei, i),
               ),
           ]),
         ),
@@ -316,7 +376,9 @@ class _SessionScreenState extends State<SessionScreen> {
         Row(children: [
           Expanded(
             child: SmallButton('+ Serie', onTap: () {
-              final last = e.sets.isEmpty ? const SetLog() : e.sets.last;
+              // la nuova serie è sempre allenante: prende carico e ripetizioni dall'ultima allenante
+              final work = e.sets.where((x) => x.isWork);
+              final last = work.isNotEmpty ? work.last : (e.sets.isEmpty ? const SetLog() : e.sets.last);
               final items = [...s.items];
               items[ei] = e.copyWith(sets: [...e.sets, SetLog(kg: last.kg, reps: last.reps)]);
               _save(s.copyWith(items: items));
@@ -377,20 +439,56 @@ class _SessionScreenState extends State<SessionScreen> {
   }
 }
 
+String _prevLabel((Session, SessionEx)? prev, List<SetLog> sets, int i, Exercise? ex) {
+  final p = prev == null ? null : matchingPrevSet(prev.$2.sets, sets, i);
+  return p == null ? '—' : prevLabel(p, ex);
+}
+
+/// Cerchietto con 1, A o D (nel menu del tipo di serie).
+class _TypeBadge extends StatelessWidget {
+  final String text;
+  final String type;
+  final bool selected;
+  const _TypeBadge(this.text, {required this.type, this.selected = false});
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tt;
+    final c = type == setWarmup ? TC.warn : (type == setDrop ? TC.danger : t.soft);
+    return Container(
+      width: 30,
+      height: 30,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: selected ? TC.accent : t.line, width: selected ? 2 : 1.5)),
+      child: Text(text, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: c)),
+    );
+  }
+}
+
 class _SetRow extends StatelessWidget {
-  final int index;
+  final String badge;
   final SetLog set;
   final bool cardio;
   final bool isNext;
   final String prev;
   final VoidCallback onTap;
   final VoidCallback onToggle;
-  const _SetRow({required this.index, required this.set, required this.cardio, required this.isNext, required this.prev, required this.onTap, required this.onToggle});
+  final VoidCallback onType;
+  const _SetRow({
+    required this.badge,
+    required this.set,
+    required this.cardio,
+    required this.isNext,
+    required this.prev,
+    required this.onTap,
+    required this.onToggle,
+    required this.onType,
+  });
 
   @override
   Widget build(BuildContext context) {
     final t = context.tt;
-    final st = TS.num(t, 17, w: FontWeight.w700, color: set.done ? t.ink : t.soft);
+    final st = TS.num(t, 17, w: FontWeight.w700, color: set.done ? (set.isWarmup ? t.soft : t.ink) : (set.isWarmup ? t.dim : t.soft));
+    final letter = set.isWarmup ? TC.warn : (set.isDrop ? TC.danger : t.soft);
     return Material(
       color: isNext ? TC.accent.withValues(alpha: 0.06) : Colors.transparent,
       child: InkWell(
@@ -403,6 +501,7 @@ class _SetRow extends StatelessWidget {
               width: 38,
               child: InkResponse(
                 onTap: onToggle,
+                onLongPress: onType,
                 radius: 22,
                 child: Container(
                   width: 30,
@@ -413,9 +512,9 @@ class _SetRow extends StatelessWidget {
                     border: Border.all(color: set.done ? TC.accent : t.line, width: 1.5),
                   ),
                   alignment: Alignment.center,
-                  child: set.done
+                  child: set.done && set.isWork
                       ? const Icon(Icons.check_rounded, size: 18, color: TC.onAccent)
-                      : Text('${index + 1}', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: t.soft)),
+                      : Text(badge, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: set.done ? TC.onAccent : letter)),
                 ),
               ),
             ),
@@ -432,10 +531,10 @@ class _SetRow extends StatelessWidget {
 
 class _SetSheet extends StatefulWidget {
   final SetLog set;
-  final int index;
+  final String badge;
   final Exercise? ex;
   final PlanItem target;
-  const _SetSheet({required this.set, required this.index, required this.ex, required this.target});
+  const _SetSheet({required this.set, required this.badge, required this.ex, required this.target});
   @override
   State<_SetSheet> createState() => _SetSheetState();
 }
@@ -453,7 +552,7 @@ class _SetSheetState extends State<_SetSheet> {
       child: Padding(
         padding: EdgeInsets.fromLTRB(20, 0, 20, 16 + MediaQuery.viewInsetsOf(context).bottom),
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Text('Serie ${widget.index + 1}', style: TS.h2(t)),
+          Text(widget.set.isWork ? 'Serie ${widget.badge}' : setTypeName(widget.set.t), style: TS.h2(t)),
           Text('Obiettivo ${widget.target.rMin}-${widget.target.rMax} $unit a RPE ${fDec(widget.target.rpe, 1, true)}', style: TS.muted(t)),
           if (!cardio) ...[
             const SectionLabel('Carico (kg)'),
@@ -479,6 +578,11 @@ class _SetSheetState extends State<_SetSheet> {
               if (v != null) setState(() => s = s.copyWith(reps: v.round()));
             },
           ),
+          const SectionLabel('Tipo di serie'),
+          Wrap(spacing: 6, runSpacing: 6, children: [
+            for (final k in const [setWork, setWarmup, setDrop])
+              PillChip(setTypeName(k), selected: s.t == k, onTap: () => setState(() => s = s.copyWith(t: k))),
+          ]),
           const SectionLabel('RPE (quanto era dura)'),
           Wrap(spacing: 6, runSpacing: 6, children: [
             PillChip('—', selected: s.rpe == null, onTap: () => setState(() => s = s.copyWith(clearRpe: true))),

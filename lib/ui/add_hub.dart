@@ -4,6 +4,7 @@ import '../core/fmt.dart';
 import '../core/theme.dart';
 import '../data/app_state.dart';
 import '../data/models.dart';
+import '../logic/food_icons.dart';
 import 'barcode.dart';
 import 'diary.dart';
 import 'food_amount.dart';
@@ -14,39 +15,17 @@ import 'recipes.dart';
 import 'shell.dart';
 import 'widgets.dart';
 
-String catEmoji(String cat) => switch (cat) {
-      'Cereali e pasta' => '🌾',
-      'Pane e prodotti da forno' => '🍞',
-      'Legumi e proteine vegetali' => '🫘',
-      'Verdure' => '🥦',
-      'Frutta' => '🍎',
-      'Frutta secca e semi' => '🥜',
-      'Carne' => '🍗',
-      'Salumi' => '🥓',
-      'Pesce' => '🐟',
-      'Uova' => '🥚',
-      'Latte e yogurt' => '🥛',
-      'Formaggi' => '🧀',
-      'Oli, grassi e condimenti' => '🫒',
-      'Dolci e snack' => '🍫',
-      'Bevande' => '🥤',
-      'Integratori' => '💪',
-      'Piatti pronti' => '🍝',
-      'Prodotti' => '🏷️',
-      'Ricette' => '🍲',
-      _ => '🍽️',
-    };
-
 class FoodBadge extends StatelessWidget {
   final String cat;
-  const FoodBadge(this.cat, {super.key});
+  final String name;
+  const FoodBadge(this.cat, {super.key, this.name = ''});
   @override
   Widget build(BuildContext context) => Container(
         width: 38,
         height: 38,
         decoration: BoxDecoration(color: context.tt.surf2, borderRadius: BorderRadius.circular(10)),
         alignment: Alignment.center,
-        child: Text(catEmoji(cat), style: const TextStyle(fontSize: 18)),
+        child: Text(foodEmoji(name, cat), style: const TextStyle(fontSize: 18)),
       );
 }
 
@@ -61,17 +40,9 @@ class MealChips extends StatelessWidget {
       ]);
 }
 
-/// Mostra conferma dopo un'aggiunta con possibilità di annullare.
+/// Conferma breve dopo un'aggiunta (senza Annulla: si corregge dal Diario).
 void confirmAdded(BuildContext context, LogEntry e) {
-  final app = context.appRead;
-  // la stima da foto crea più voci: l'id è "id1|id2|..."
-  toast(context, 'Aggiunto a ${mealLabels[e.meal]!.toLowerCase()} · ${fInt(e.kcal)} kcal', action: 'Annulla', onAction: () {
-    app.store.batch(() {
-      for (final id in e.id.split('|')) {
-        app.deleteEntry(id);
-      }
-    });
-  });
+  toast(context, 'Aggiunto a ${mealLabels[e.meal]!.toLowerCase()} · ${fInt(e.kcal)} kcal');
 }
 
 class AddHubScreen extends StatefulWidget {
@@ -129,9 +100,9 @@ class _AddHubScreenState extends State<AddHubScreen> {
       rows.add(Padding(
         padding: const EdgeInsets.only(bottom: 8),
         child: RowTile(
-          leading: FoodBadge(f.cat),
+          leading: FoodBadge(f.cat, name: f.name),
           title: f.displayName,
-          subtitle: '${fG(g)} g · ${fInt(m.kcal)} kcal${fav.contains(f.id) ? ' · ★' : ''}',
+          subtitle: '${fG(g)} ${f.unit} · ${fInt(m.kcal)} kcal${fav.contains(f.id) ? ' · ★' : ''}',
           onTap: () => _open(FoodAmountScreen(food: f, date: date, meal: meal, initialG: g)),
           trailing: PlusBadge(onTap: () {
             final e = app.entryFromFood(f, g, date: date, meal: meal);

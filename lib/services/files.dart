@@ -11,6 +11,7 @@ import 'package:share_plus/share_plus.dart';
 import '../core/fmt.dart';
 import '../core/ids.dart';
 import '../data/app_state.dart';
+import '../logic/training.dart';
 
 // =================================================================== foto
 
@@ -62,15 +63,15 @@ Map<String, String> buildCsvFiles(AppState app) {
     for (final e in log) [e.date, e.meal, e.name, _n(e.g, 0), _n(e.kcal, 0), _n(e.p), _n(e.c), _n(e.f)],
   ]);
   final peso = _csv(['data', 'kg'], [for (final w in app.weights) [w.date, _n(w.kg, 2)]]);
-  final allenamenti = _csv(['data', 'sessione', 'esercizio', 'serie', 'kg', 'ripetizioni', 'rpe', 'fatta'], [
+  final allenamenti = _csv(['data', 'sessione', 'esercizio', 'serie', 'kg', 'ripetizioni', 'rpe', 'fatta', 'tipo'], [
     for (final s in app.doneSessions)
       for (final e in s.items)
         for (var i = 0; i < e.sets.length; i++)
-          [s.date, s.name, e.name, i + 1, _n(e.sets[i].kg, 2), e.sets[i].reps, _n(e.sets[i].rpe), e.sets[i].done ? 'sì' : 'no'],
+          [s.date, s.name, e.name, i + 1, _n(e.sets[i].kg, 2), e.sets[i].reps, _n(e.sets[i].rpe), e.sets[i].done ? 'sì' : 'no', setTypeName(e.sets[i].t)],
   ]);
   final habits = app.habitsByDate.values.toList()..sort((a, b) => a.date.compareTo(b.date));
-  final abitudini = _csv(['data', 'acqua_ml', 'sonno_min', 'passi', 'alcol'], [
-    for (final h in habits) [h.date, h.water, h.sleep, h.steps, h.alcohol],
+  final abitudini = _csv(['data', 'acqua_ml', 'sonno_min', 'passi', 'alcol', 'integratori'], [
+    for (final h in habits) [h.date, h.water, h.sleep, h.steps, h.alcohol, h.supp.join(' + ')],
   ]);
   final dates = app.activeDates.toList()..sort();
   final voti = _csv(['data', 'voto', 'kcal', 'proteine'], [

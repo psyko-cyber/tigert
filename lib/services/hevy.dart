@@ -19,6 +19,9 @@ class HevySet {
   final int? repStart, repEnd; // solo nelle routine
   const HevySet({this.type = 'normal', this.kg, this.reps, this.rpe, this.seconds, this.meters, this.repStart, this.repEnd});
   bool get warmup => type == 'warmup' || type == '2';
+  bool get drop => type == 'dropset';
+  /// Tipo di serie in Tigert: avvicinamento, dropset o allenante (anche "failure").
+  String get tigertType => warmup ? setWarmup : (drop ? setDrop : setWork);
 }
 
 class HevyExerciseLog {
@@ -740,9 +743,10 @@ class HevyItemDraft {
   final String exKey;
   final String title;
   final int sets, rMin, rMax, rest;
+  final int warm;
   final double rpe;
   final String note;
-  const HevyItemDraft(this.exKey, this.title, this.sets, this.rMin, this.rMax, this.rpe, this.rest, this.note);
+  const HevyItemDraft(this.exKey, this.title, this.sets, this.rMin, this.rMax, this.rpe, this.rest, this.note, {this.warm = 0});
 }
 
 class HevyDayDraft {
@@ -761,7 +765,7 @@ class HevyPlanDraft {
 }
 
 HevyItemDraft _item(HevyExerciseLog e) {
-  final work = e.sets.where((s) => !s.warmup).toList();
+  final work = e.sets.where((s) => !s.warmup && !s.drop).toList();
   final lows = [for (final s in work) s.repStart ?? s.reps].whereType<int>().where((v) => v > 0).toList();
   final highs = [for (final s in work) s.repEnd ?? s.reps].whereType<int>().where((v) => v > 0).toList();
   var rMin = lows.isEmpty ? 8 : lows.reduce((a, b) => a < b ? a : b);
@@ -777,6 +781,7 @@ HevyItemDraft _item(HevyExerciseLog e) {
     rpes.isEmpty ? 9 : (rpes.reduce((a, b) => a + b) / rpes.length * 2).round() / 2,
     e.restSeconds > 0 ? e.restSeconds : 120,
     e.notes,
+    warm: e.sets.where((s) => s.warmup).length.clamp(0, 5),
   );
 }
 
@@ -867,11 +872,11 @@ HevyImportResult importHevy(
         final items = <SessionEx>[];
         for (final e in w.exercises) {
           final ex = resolve(e.key);
-          final work = e.sets.where((s) => !s.warmup).toList();
-          if (work.isEmpty) continue;
+          if (e.sets.every((s) => s.warmup)) continue;
           final sets = [
-            for (final s in work)
+            for (final s in e.sets)
               SetLog(
+                t: s.tigertType,
                 kg: ex.isCardio ? 0 : double.parse((s.kg ?? 0).toStringAsFixed(2)),
                 reps: ex.isCardio
                     ? ((s.seconds ?? 0) / 60).ceil()
@@ -885,7 +890,7 @@ HevyImportResult importHevy(
             ex: ex.id,
             name: ex.name,
             type: ex.type,
-            target: PlanItem(ex: ex.id, sets: sets.length, rMin: dr.rMin, rMax: dr.rMax, rpe: dr.rpe, rest: dr.rest),
+            target: PlanItem(ex: ex.id, sets: dr.sets, rMin: dr.rMin, rMax: dr.rMax, rpe: dr.rpe, rest: dr.rest, warm: dr.warm),
             sets: sets,
           ));
         }
@@ -924,7 +929,7 @@ HevyImportResult importHevy(
           for (final day in p.days)
             PlanDay(id: day.id, name: day.name, items: [
               for (final it in day.items)
-                PlanItem(ex: resolve(it.exKey).id, sets: it.sets, rMin: it.rMin, rMax: it.rMax, rpe: it.rpe, rest: it.rest, note: it.note),
+                PlanItem(ex: resolve(it.exKey).id, sets: it.sets, rMin: it.rMin, rMax: it.rMax, rpe: it.rpe, rest: it.rest, note: it.note, warm: it.warm),
             ]),
         ],
       );

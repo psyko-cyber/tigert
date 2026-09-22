@@ -68,6 +68,8 @@ class Reminders {
   final bool eveningOn; // riepilogo serale se mancano dati
   final String eveningTime;
   final bool coachOn; // consigli di carico nel promemoria di allenamento
+  final bool suppOn; // integratori non ancora spuntati
+  final String suppTime;
 
   const Reminders({
     required this.meals,
@@ -82,6 +84,8 @@ class Reminders {
     this.eveningOn = true,
     this.eveningTime = '21:30',
     this.coachOn = true,
+    this.suppOn = true,
+    this.suppTime = '20:00',
   });
 
   static Reminders defaults() => const Reminders(meals: [
@@ -103,6 +107,8 @@ class Reminders {
         'eveningOn': eveningOn,
         'eveningTime': eveningTime,
         'coachOn': coachOn,
+        'suppOn': suppOn,
+        'suppTime': suppTime,
       };
 
   factory Reminders.fromMap(Map? m) {
@@ -120,6 +126,8 @@ class Reminders {
       eveningOn: m['eveningOn'] != false,
       eveningTime: _s(m['eveningTime'], '21:30'),
       coachOn: m['coachOn'] != false,
+      suppOn: m['suppOn'] != false,
+      suppTime: _s(m['suppTime'], '20:00'),
     );
   }
 
@@ -136,6 +144,8 @@ class Reminders {
     bool? eveningOn,
     String? eveningTime,
     bool? coachOn,
+    bool? suppOn,
+    String? suppTime,
   }) =>
       Reminders(
         meals: meals ?? this.meals,
@@ -150,6 +160,8 @@ class Reminders {
         eveningOn: eveningOn ?? this.eveningOn,
         eveningTime: eveningTime ?? this.eveningTime,
         coachOn: coachOn ?? this.coachOn,
+        suppOn: suppOn ?? this.suppOn,
+        suppTime: suppTime ?? this.suppTime,
       );
 }
 
@@ -179,7 +191,8 @@ class Profile {
   final String? lastAdjust;
   final List<TargetChange> changes;
   final int waterMl, steps, sleepMin;
-  final Map<String, bool> habits; // water, sleep, steps, alcohol
+  final Map<String, bool> habits; // water, sleep, steps, alcohol, supp (integratori, fuori dal voto)
+  final List<String> supplements; // integratori da spuntare ogni giorno
   final List<int> trainingDays; // 1 = lunedì
   final String? planId;
   final Reminders reminders;
@@ -207,6 +220,7 @@ class Profile {
     this.steps = 8000,
     this.sleepMin = 450,
     this.habits = const {'water': true, 'sleep': true, 'steps': true, 'alcohol': true},
+    this.supplements = const ['Creatina'],
     required this.trainingDays,
     this.planId,
     required this.reminders,
@@ -238,6 +252,7 @@ class Profile {
         'steps': steps,
         'sleepMin': sleepMin,
         'habits': habits,
+        'supplements': supplements,
         'trainingDays': trainingDays,
         'planId': planId,
         'reminders': reminders.toMap(),
@@ -267,6 +282,7 @@ class Profile {
         sleepMin: _i(m['sleepMin'], 450),
         habits: ((m['habits'] as Map?) ?? const {'water': true, 'sleep': true, 'steps': true, 'alcohol': true})
             .map((k, v) => MapEntry(k as String, v == true)),
+        supplements: ((m['supplements'] as List?) ?? const ['Creatina']).map((e) => e.toString()).toList(),
         trainingDays: ((m['trainingDays'] as List?) ?? const [1, 3, 5]).map((e) => _i(e)).toList()..sort(),
         planId: m['planId'] as String?,
         reminders: Reminders.fromMap(m['reminders'] as Map?),
@@ -295,6 +311,7 @@ class Profile {
     int? steps,
     int? sleepMin,
     Map<String, bool>? habits,
+    List<String>? supplements,
     List<int>? trainingDays,
     String? planId,
     Reminders? reminders,
@@ -322,6 +339,7 @@ class Profile {
         steps: steps ?? this.steps,
         sleepMin: sleepMin ?? this.sleepMin,
         habits: habits ?? this.habits,
+        supplements: supplements ?? this.supplements,
         trainingDays: trainingDays ?? this.trainingDays,
         planId: planId ?? this.planId,
         reminders: reminders ?? this.reminders,
@@ -347,6 +365,7 @@ class Food {
   final double kcal, p, c, f, fiber;
   final List<Portion> portions;
   final String src; // seed | user | off | photo
+  final bool ml; // liquido: quantità in ml (1 ml = 1 g, valori per 100 ml)
 
   const Food({
     required this.id,
@@ -361,11 +380,13 @@ class Food {
     this.fiber = 0,
     this.portions = const [],
     this.src = 'user',
+    this.ml = false,
   });
 
   Macro per(double grams) => Macro(kcal, p, c, f).scale(grams / 100);
   String get displayName => brand == null || brand!.isEmpty ? name : '$name · $brand';
   bool get isSeed => src == 'seed';
+  String get unit => ml ? 'ml' : 'g';
 
   Map<String, dynamic> toMap() => {
         'n': name,
@@ -379,6 +400,7 @@ class Food {
         'fi': fiber,
         'por': portions.map((e) => e.toMap()).toList(),
         'src': src,
+        'ml': ml,
       };
 
   factory Food.fromMap(Map m, {String? src}) => Food(
@@ -394,9 +416,10 @@ class Food {
         fiber: _d(m['fi']),
         portions: ((m['por'] as List?) ?? const []).map((e) => Portion.fromMap(e as Map)).toList(),
         src: src ?? _s(m['src'], 'user'),
+        ml: m['ml'] is bool ? m['ml'] as bool : isLiquidFood(_s(m['n']), _s(m['cat'])),
       );
 
-  Food copyWith({String? id, String? name, String? brand, String? ean, double? kcal, double? p, double? c, double? f, List<Portion>? portions, String? src, String? cat}) => Food(
+  Food copyWith({String? id, String? name, String? brand, String? ean, double? kcal, double? p, double? c, double? f, List<Portion>? portions, String? src, String? cat, bool? ml}) => Food(
         id: id ?? this.id,
         name: name ?? this.name,
         brand: brand ?? this.brand,
@@ -409,21 +432,28 @@ class Food {
         fiber: fiber,
         portions: portions ?? this.portions,
         src: src ?? this.src,
+        ml: ml ?? this.ml,
       );
 }
+
+/// Alimenti che di default si misurano in ml (bevande, latte, bevande vegetali, succhi).
+bool isLiquidFood(String name, String cat) =>
+    cat == 'Bevande' || RegExp(r'^(latte\b|bevanda\b|acqua\b|succo\b|spremuta\b)|\(succo\)', caseSensitive: false).hasMatch(name.trim());
 
 class RecipeItem {
   final String foodId;
   final String name;
   final double g;
   final double kcal, p, c, f; // per 100 g (istantanea)
-  const RecipeItem(this.foodId, this.name, this.g, this.kcal, this.p, this.c, this.f);
+  final bool ml;
+  const RecipeItem(this.foodId, this.name, this.g, this.kcal, this.p, this.c, this.f, {this.ml = false});
   Macro get macro => Macro(kcal, p, c, f).scale(g / 100);
-  Map<String, dynamic> toMap() => {'food': foodId, 'n': name, 'g': g, 'k': kcal, 'p': p, 'c': c, 'f': f};
+  String get unit => ml ? 'ml' : 'g';
+  Map<String, dynamic> toMap() => {'food': foodId, 'n': name, 'g': g, 'k': kcal, 'p': p, 'c': c, 'f': f, if (ml) 'ml': true};
   factory RecipeItem.fromMap(Map m) =>
-      RecipeItem(_s(m['food']), _s(m['n']), _d(m['g']), _d(m['k']), _d(m['p']), _d(m['c']), _d(m['f']));
-  factory RecipeItem.of(Food food, double g) => RecipeItem(food.id, food.name, g, food.kcal, food.p, food.c, food.f);
-  RecipeItem withGrams(double g) => RecipeItem(foodId, name, g, kcal, p, c, f);
+      RecipeItem(_s(m['food']), _s(m['n']), _d(m['g']), _d(m['k']), _d(m['p']), _d(m['c']), _d(m['f']), ml: m['ml'] == true);
+  factory RecipeItem.of(Food food, double g) => RecipeItem(food.id, food.name, g, food.kcal, food.p, food.c, food.f, ml: food.ml);
+  RecipeItem withGrams(double g) => RecipeItem(foodId, name, g, kcal, p, c, f, ml: ml);
 }
 
 class Recipe {
@@ -478,6 +508,7 @@ class LogEntry {
   final String meal;
   final String name;
   final double? g; // grammi (null per "solo calorie")
+  final bool ml; // la quantità g è in ml (bevande)
   final double servings; // per le ricette
   final double kcal, p, c, f;
   final String refType; // food | recipe | quick | photo
@@ -491,6 +522,7 @@ class LogEntry {
     required this.meal,
     required this.name,
     this.g,
+    this.ml = false,
     this.servings = 1,
     required this.kcal,
     required this.p,
@@ -509,6 +541,7 @@ class LogEntry {
         'meal': meal,
         'n': name,
         'g': g,
+        if (ml) 'ml': true,
         'sv': servings,
         'k': kcal,
         'p': p,
@@ -526,6 +559,7 @@ class LogEntry {
         meal: _s(m['meal'], 'pranzo'),
         name: _s(m['n']),
         g: m['g'] is num ? (m['g'] as num).toDouble() : null,
+        ml: m['ml'] == true,
         servings: _d(m['sv'], 1),
         kcal: _d(m['k']),
         p: _d(m['p']),
@@ -543,6 +577,7 @@ class LogEntry {
         meal: meal ?? this.meal,
         name: name ?? this.name,
         g: g ?? this.g,
+        ml: ml,
         servings: servings ?? this.servings,
         kcal: kcal ?? this.kcal,
         p: p ?? this.p,
@@ -561,17 +596,27 @@ class HabitDay {
   final int? sleep; // minuti
   final int? steps;
   final int? alcohol; // bicchieri
-  const HabitDay({required this.date, this.water = 0, this.sleep, this.steps, this.alcohol});
-  Map<String, dynamic> toMap() => {'date': date, 'water': water, 'sleep': sleep, 'steps': steps, 'alcohol': alcohol};
-  factory HabitDay.fromMap(Map m) =>
-      HabitDay(date: _s(m['date']), water: _i(m['water']), sleep: _in(m['sleep']), steps: _in(m['steps']), alcohol: _in(m['alcohol']));
-  HabitDay copyWith({int? water, int? sleep, int? steps, int? alcohol, bool clearAlcohol = false}) => HabitDay(
+  final List<String> supp; // integratori presi
+  const HabitDay({required this.date, this.water = 0, this.sleep, this.steps, this.alcohol, this.supp = const []});
+  Map<String, dynamic> toMap() => {'date': date, 'water': water, 'sleep': sleep, 'steps': steps, 'alcohol': alcohol, 'supp': supp};
+  factory HabitDay.fromMap(Map m) => HabitDay(
+        date: _s(m['date']),
+        water: _i(m['water']),
+        sleep: _in(m['sleep']),
+        steps: _in(m['steps']),
+        alcohol: _in(m['alcohol']),
+        supp: ((m['supp'] as List?) ?? const []).map((e) => e.toString()).toList(),
+      );
+  HabitDay copyWith({int? water, int? sleep, int? steps, int? alcohol, bool clearAlcohol = false, List<String>? supp}) => HabitDay(
         date: date,
         water: water ?? this.water,
         sleep: sleep ?? this.sleep,
         steps: steps ?? this.steps,
         alcohol: clearAlcohol ? null : (alcohol ?? this.alcohol),
+        supp: supp ?? this.supp,
       );
+  bool took(String name) => supp.contains(name);
+  HabitDay toggleSupp(String name) => copyWith(supp: took(name) ? supp.where((e) => e != name).toList() : [...supp, name]);
 }
 
 class WeightEntry {
@@ -625,8 +670,9 @@ class PlanItem {
   final double rpe;
   final int rest; // secondi
   final String note;
-  const PlanItem({required this.ex, this.sets = 3, this.rMin = 8, this.rMax = 12, this.rpe = 9, this.rest = 120, this.note = ''});
-  Map<String, dynamic> toMap() => {'ex': ex, 'sets': sets, 'rMin': rMin, 'rMax': rMax, 'rpe': rpe, 'rest': rest, 'note': note};
+  final int warm; // serie di avvicinamento da precompilare prima di quelle allenanti
+  const PlanItem({required this.ex, this.sets = 3, this.rMin = 8, this.rMax = 12, this.rpe = 9, this.rest = 120, this.note = '', this.warm = 0});
+  Map<String, dynamic> toMap() => {'ex': ex, 'sets': sets, 'rMin': rMin, 'rMax': rMax, 'rpe': rpe, 'rest': rest, 'note': note, if (warm > 0) 'warm': warm};
   factory PlanItem.fromMap(Map m) => PlanItem(
         ex: _s(m['ex']),
         sets: _i(m['sets'], 3),
@@ -635,8 +681,9 @@ class PlanItem {
         rpe: _d(m['rpe'], 9),
         rest: _i(m['rest'], 120),
         note: _s(m['note']),
+        warm: _i(m['warm']),
       );
-  PlanItem copyWith({String? ex, int? sets, int? rMin, int? rMax, double? rpe, int? rest, String? note}) => PlanItem(
+  PlanItem copyWith({String? ex, int? sets, int? rMin, int? rMax, double? rpe, int? rest, String? note, int? warm}) => PlanItem(
         ex: ex ?? this.ex,
         sets: sets ?? this.sets,
         rMin: rMin ?? this.rMin,
@@ -644,6 +691,7 @@ class PlanItem {
         rpe: rpe ?? this.rpe,
         rest: rest ?? this.rest,
         note: note ?? this.note,
+        warm: warm ?? this.warm,
       );
   String get scheme => rMin == rMax ? '$sets×$rMin' : '$sets×$rMin-$rMax';
 }
@@ -652,16 +700,22 @@ class PlanDay {
   final String id;
   final String name;
   final List<PlanItem> items;
-  const PlanDay({required this.id, required this.name, this.items = const []});
+  final int week; // settimana del ciclo (1 = A), conta solo se la scheda ha più settimane
+  const PlanDay({required this.id, required this.name, this.items = const [], this.week = 1});
   int get totalSets => items.fold(0, (a, b) => a + b.sets);
-  Map<String, dynamic> toMap() => {'id': id, 'name': name, 'items': items.map((e) => e.toMap()).toList()};
+  Map<String, dynamic> toMap() => {'id': id, 'name': name, 'items': items.map((e) => e.toMap()).toList(), if (week > 1) 'week': week};
   factory PlanDay.fromMap(Map m) => PlanDay(
         id: _s(m['id']),
         name: _s(m['name']),
         items: ((m['items'] as List?) ?? const []).map((e) => PlanItem.fromMap(e as Map)).toList(),
+        week: _i(m['week'], 1).clamp(1, 8),
       );
-  PlanDay copyWith({String? name, List<PlanItem>? items}) => PlanDay(id: id, name: name ?? this.name, items: items ?? this.items);
+  PlanDay copyWith({String? name, List<PlanItem>? items, int? week}) =>
+      PlanDay(id: id, name: name ?? this.name, items: items ?? this.items, week: week ?? this.week);
 }
+
+/// Lettera della settimana del ciclo: 1 → A, 2 → B...
+String weekLetter(int w) => String.fromCharCode(64 + w.clamp(1, 26));
 
 class Plan {
   final String id;
@@ -669,17 +723,43 @@ class Plan {
   final String template;
   final String startDate;
   final List<PlanDay> days;
-  const Plan({required this.id, required this.name, this.template = 'custom', required this.startDate, this.days = const []});
-  Map<String, dynamic> toMap() => {'name': name, 'template': template, 'startDate': startDate, 'days': days.map((e) => e.toMap()).toList()};
+  final int cycle; // settimane del ciclo (1 = scheda classica)
+  const Plan({required this.id, required this.name, this.template = 'custom', required this.startDate, this.days = const [], this.cycle = 1});
+  Map<String, dynamic> toMap() =>
+      {'name': name, 'template': template, 'startDate': startDate, 'days': days.map((e) => e.toMap()).toList(), if (cycle > 1) 'cycle': cycle};
   factory Plan.fromMap(Map m) => Plan(
         id: _s(m['id']),
         name: _s(m['name']),
         template: _s(m['template'], 'custom'),
         startDate: _s(m['startDate'], todayKey()),
         days: ((m['days'] as List?) ?? const []).map((e) => PlanDay.fromMap(e as Map)).toList(),
+        cycle: _i(m['cycle'], 1).clamp(1, 4),
       );
-  Plan copyWith({String? name, List<PlanDay>? days, String? template}) =>
-      Plan(id: id, name: name ?? this.name, template: template ?? this.template, startDate: startDate, days: days ?? this.days);
+  Plan copyWith({String? name, List<PlanDay>? days, String? template, int? cycle}) => Plan(
+        id: id,
+        name: name ?? this.name,
+        template: template ?? this.template,
+        startDate: startDate,
+        days: days ?? this.days,
+        cycle: cycle ?? this.cycle,
+      );
+
+  /// Con un ciclo di più settimane i giorni ruotano in ordine di settimana (A, poi B...).
+  Plan normalized() {
+    if (cycle <= 1) return days.every((d) => d.week == 1) ? this : copyWith(days: [for (final d in days) d.copyWith(week: 1)]);
+    final fixed = [for (final d in days) d.week > cycle ? d.copyWith(week: cycle) : d];
+    return copyWith(days: [for (var w = 1; w <= cycle; w++) ...fixed.where((d) => d.week == w)]);
+  }
+
+  /// Copia con un nuovo id (e nuovi id dei giorni).
+  Plan duplicate(String newPlanId, String Function() newDayId, {String? name}) => Plan(
+        id: newPlanId,
+        name: name ?? '${this.name} (copia)',
+        template: template,
+        startDate: todayKey(),
+        days: [for (final d in days) PlanDay(id: newDayId(), name: d.name, items: d.items, week: d.week)],
+        cycle: cycle,
+      );
   PlanDay? day(String id) {
     for (final d in days) {
       if (d.id == id) return d;
@@ -688,21 +768,31 @@ class Plan {
   }
 }
 
+/// Tipo di serie: allenante (normale), avvicinamento, dropset.
+const setWork = 'n', setWarmup = 'a', setDrop = 'd';
+
 class SetLog {
   final double kg;
   final int reps;
   final double? rpe;
   final bool done;
-  const SetLog({this.kg = 0, this.reps = 0, this.rpe, this.done = false});
-  Map<String, dynamic> toMap() => {'kg': kg, 'r': reps, 'rpe': rpe, 'done': done};
+  final String t; // n | a | d (vedi setWork, setWarmup, setDrop)
+  const SetLog({this.kg = 0, this.reps = 0, this.rpe, this.done = false, this.t = setWork});
+  Map<String, dynamic> toMap() => {'kg': kg, 'r': reps, 'rpe': rpe, 'done': done, if (t != setWork) 't': t};
   factory SetLog.fromMap(Map m) => SetLog(
         kg: _d(m['kg']),
         reps: _i(m['r']),
         rpe: m['rpe'] is num ? (m['rpe'] as num).toDouble() : null,
         done: m['done'] == true,
+        t: const {setWarmup, setDrop}.contains(m['t']) ? m['t'] as String : setWork,
       );
-  SetLog copyWith({double? kg, int? reps, double? rpe, bool? done, bool clearRpe = false}) =>
-      SetLog(kg: kg ?? this.kg, reps: reps ?? this.reps, rpe: clearRpe ? null : (rpe ?? this.rpe), done: done ?? this.done);
+  SetLog copyWith({double? kg, int? reps, double? rpe, bool? done, bool clearRpe = false, String? t}) =>
+      SetLog(kg: kg ?? this.kg, reps: reps ?? this.reps, rpe: clearRpe ? null : (rpe ?? this.rpe), done: done ?? this.done, t: t ?? this.t);
+  bool get isWork => t == setWork;
+  bool get isWarmup => t == setWarmup;
+  bool get isDrop => t == setDrop;
+  /// Serie allenante completata: solo queste guidano coach e record.
+  bool get counts => done && isWork;
   double get volume => kg * reps;
   /// 1RM stimato (Epley).
   double get e1rm => reps <= 0 ? 0 : (reps == 1 ? kg : kg * (1 + reps / 30));
@@ -715,7 +805,11 @@ class SessionEx {
   final PlanItem target;
   final List<SetLog> sets;
   const SessionEx({required this.ex, required this.name, required this.type, required this.target, this.sets = const []});
-  int get doneSets => sets.where((s) => s.done).length;
+  /// Serie fatte, senza gli avvicinamenti (non sono lavoro).
+  int get doneSets => sets.where((s) => s.done && !s.isWarmup).length;
+  int get plannedSets => sets.where((s) => !s.isWarmup).length;
+  /// Serie allenanti completate.
+  List<SetLog> get workDone => sets.where((s) => s.counts).toList();
   Map<String, dynamic> toMap() => {'ex': ex, 'name': name, 'type': type, 'target': target.toMap(), 'sets': sets.map((e) => e.toMap()).toList()};
   factory SessionEx.fromMap(Map m) => SessionEx(
         ex: _s(m['ex']),
@@ -755,12 +849,12 @@ class Session {
   });
 
   bool get isActive => status == 'active';
-  int get plannedSets => items.fold(0, (a, b) => a + b.sets.length);
+  int get plannedSets => items.fold(0, (a, b) => a + b.plannedSets);
   int get doneSets => items.fold(0, (a, b) => a + b.doneSets);
-  double get volume => items.fold(0.0, (a, e) => a + (e.type == 'k' ? 0 : e.sets.where((s) => s.done).fold(0.0, (x, s) => x + s.volume)));
+  double get volume => items.fold(0.0, (a, e) => a + (e.type == 'k' ? 0 : e.sets.where((s) => s.done && !s.isWarmup).fold(0.0, (x, s) => x + s.volume)));
   Duration get duration => Duration(milliseconds: (end ?? DateTime.now().millisecondsSinceEpoch) - start);
   double? get avgRpe {
-    final r = [for (final e in items) for (final s in e.sets) if (s.done && s.rpe != null) s.rpe!];
+    final r = [for (final e in items) for (final s in e.sets) if (s.counts && s.rpe != null) s.rpe!];
     return r.isEmpty ? null : r.reduce((a, b) => a + b) / r.length;
   }
 

@@ -50,10 +50,11 @@ class _FoodAmountScreenState extends State<FoodAmountScreen> {
     final m = food.per(g);
     final fav = app.favorites.contains(food.id);
     final step = widget.productStyle ? 25.0 : 10.0;
+    final u = food.unit;
     final chips = <(String, double)>[
-      for (final p in food.portions) ('${p.label} · ${fG(p.g)} g', p.g),
-      for (final v in [50.0, 100.0, 150.0, 200.0])
-        if (!food.portions.any((p) => p.g == v)) ('${fG(v)} g', v),
+      for (final p in food.portions) ('${p.label} · ${fG(p.g)} $u', p.g),
+      for (final v in (food.ml ? [100.0, 200.0, 250.0, 330.0, 500.0] : [50.0, 100.0, 150.0, 200.0]))
+        if (!food.portions.any((p) => p.g == v)) ('${fG(v)} $u', v),
     ];
     final edit = widget.editEntry != null;
 
@@ -81,7 +82,7 @@ class _FoodAmountScreenState extends State<FoodAmountScreen> {
             Navigator.pop(context);
           }),
         PrimaryButton(
-          widget.pickMode ? 'Usa ${fG(g)} g' : (edit ? 'Salva' : 'Aggiungi a ${mealLabels[meal]!.toLowerCase()}'),
+          widget.pickMode ? 'Usa ${fG(g)} $u' : (edit ? 'Salva' : 'Aggiungi a ${mealLabels[meal]!.toLowerCase()}'),
           onTap: g <= 0
               ? null
               : () {
@@ -109,7 +110,7 @@ class _FoodAmountScreenState extends State<FoodAmountScreen> {
           const SizedBox(height: 12),
           TCard(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Label('Per 100 g'),
+              Label('Per 100 $u'),
               const SizedBox(height: 10),
               Row(children: [
                 _Tile('KCAL', fInt(food.kcal), t.dim),
@@ -131,13 +132,13 @@ class _FoodAmountScreenState extends State<FoodAmountScreen> {
             Tap(
               radius: 8,
               onTap: () async {
-                final v = await askNumber(context, title: 'Quantità', initial: g, unit: 'g', decimals: 0, max: 5000);
+                final v = await askNumber(context, title: 'Quantità', initial: g, unit: u, decimals: 0, max: 5000);
                 if (v != null) _set(v);
               },
               child: Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
                 Text(fG(g), style: TS.num(t, 44)),
                 const SizedBox(width: 6),
-                Text('g', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: t.dim)),
+                Text(u, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: t.dim)),
                 const SizedBox(width: 8),
                 Icon(Icons.edit_rounded, size: 16, color: t.dim),
               ]),
@@ -168,8 +169,8 @@ class _FoodAmountScreenState extends State<FoodAmountScreen> {
         TCard(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
-              Expanded(child: Text('Calcolato su ${fG(g)} g', style: TS.muted(t))),
-              Text('${fInt(food.kcal)} kcal / 100 g', style: TS.muted(t, 12)),
+              Expanded(child: Text('Calcolato su ${fG(g)} $u', style: TS.muted(t))),
+              Text('${fInt(food.kcal)} kcal / 100 $u', style: TS.muted(t, 12)),
             ]),
             const SizedBox(height: 2),
             BigNumber(fInt(m.kcal), unit: 'kcal', size: 38),

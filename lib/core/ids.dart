@@ -17,6 +17,6 @@ bool get isWindows => !kIsWeb && Platform.isWindows;
 bool get isDesktop => !kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS);
 bool get isMobile => !kIsWeb && (Platform.isAndroid || Platform.isIOS);
 
-const appVersion = '1.1.0';
-const appBuild = 2;
+const appVersion = '1.2.0';
+const appBuild = 3;
 const githubRepo = 'psyko-cyber/tigert';

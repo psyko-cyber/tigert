@@ -10,9 +10,11 @@ import '../logic/training.dart';
 import 'coach.dart';
 import 'hevy_import.dart';
 import 'plan_editor.dart';
+import 'plans.dart';
 import 'session.dart';
 import 'session_summary.dart';
 import 'shell.dart';
+import 'volume.dart';
 import 'widgets.dart';
 
 /// Avvia (o riprende) una sessione per un giorno della scheda.
@@ -84,6 +86,8 @@ class TrainingScreen extends StatelessWidget {
                 push(context, PlanEditorScreen(planId: plan.id));
               case 'change':
                 chooseTemplate(context);
+              case 'plans':
+                push(context, const PlansScreen());
               case 'free':
                 startSession(context, free: true);
               case 'history':
@@ -95,13 +99,20 @@ class TrainingScreen extends StatelessWidget {
           itemBuilder: (_) => const [
             PopupMenuItem(value: 'edit', child: Text('Modifica scheda')),
             PopupMenuItem(value: 'change', child: Text('Cambia scheda')),
+            PopupMenuItem(value: 'plans', child: Text('Le mie schede')),
             PopupMenuItem(value: 'free', child: Text('Allenamento libero')),
             PopupMenuItem(value: 'history', child: Text('Storico sessioni')),
             PopupMenuItem(value: 'hevy', child: Text('Importa da Hevy')),
           ],
         ),
       ]),
-      Text('${plan.days.map((d) => d.name).join(' / ')} · ${p.trainingDays.length} giorni', style: TS.muted(t)),
+      Text(
+        [
+          if (plan.cycle > 1 && next?.day != null) 'Ciclo: settimana ${weekLetter(next!.day!.week)} di ${plan.cycle}',
+          '${plan.name} · ${p.trainingDays.length} giorni',
+        ].join(' · '),
+        style: TS.muted(t),
+      ),
       const SizedBox(height: 16),
       if (slots.isEmpty) const NoteBox(text: 'Nessun giorno di allenamento impostato: sceglili in Profilo → Giorni di allenamento.'),
       for (final s in slots)
@@ -122,6 +133,7 @@ class TrainingScreen extends StatelessWidget {
         ]),
       ),
       const SizedBox(height: 14),
+      const VolumeCard(),
       if (active == null && next?.day != null) CoachCard(day: next!.day!),
       if (active != null)
         PrimaryButton('Riprendi ${active.name}', icon: Icons.play_arrow_rounded, onTap: () => push(context, SessionScreen(sessionId: active.id)))
@@ -142,7 +154,7 @@ class TrainingScreen extends StatelessWidget {
           padding: const EdgeInsets.only(bottom: 8),
           child: RowTile(
             title: d.name,
-            subtitle: '${d.items.length} esercizi · ${d.totalSets} serie',
+            subtitle: '${plan.cycle > 1 ? 'Settimana ${weekLetter(d.week)} · ' : ''}${d.items.length} esercizi · ${d.totalSets} serie',
             onTap: () => showDayPreview(context, d),
             trailing: Icon(Icons.chevron_right_rounded, color: t.dim),
           ),
@@ -266,10 +278,13 @@ Future<void> showDayPreview(BuildContext context, PlanDay day) {
 }
 
 /// Scelta di uno split pronto (crea una nuova scheda e la attiva).
-Future<void> chooseTemplate(BuildContext context) async {
+/// Cambia scheda: prima quelle già salvate, poi i modelli (che creano una scheda nuova).
+Future<void> chooseTemplate(BuildContext context, {bool templatesOnly = false}) async {
   final app = context.appRead;
   final days = app.profile?.trainingDays.length ?? 3;
   final suggested = suggestTemplate(days);
+  final activeId = app.activePlan?.id;
+  final saved = templatesOnly ? const <Plan>[] : app.plans;
   final key = await showModalBottomSheet<String>(
     context: context,
     isScrollControlled: true,
@@ -280,7 +295,21 @@ Future<void> chooseTemplate(BuildContext context) async {
         initialChildSize: 0.75,
         maxChildSize: 0.92,
         builder: (c, sc) => ListView(controller: sc, padding: const EdgeInsets.fromLTRB(20, 0, 20, 24), children: [
-          Text('Scegli una scheda', style: TS.h1(t).copyWith(fontSize: 22)),
+          Text(templatesOnly ? 'Nuova scheda' : 'Scegli una scheda', style: TS.h1(t).copyWith(fontSize: 22)),
+          if (saved.isNotEmpty) ...[
+            const SectionLabel('Le tue schede'),
+            for (final p in saved)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: RowTile(
+                  title: '${p.name}${p.id == activeId ? ' · attiva' : ''}',
+                  subtitle: planSubtitle(p),
+                  borderColor: p.id == activeId ? TC.accent : null,
+                  onTap: () => Navigator.pop(c, 'plan:${p.id}'),
+                ),
+              ),
+            const SectionLabel('Oppure crea una scheda nuova da un modello'),
+          ],
           Text('Con $days giorni a settimana ti consiglio: ${suggested.name}.', style: TS.muted(t)),
           const SizedBox(height: 12),
           for (final tpl in splitTemplates)
@@ -299,6 +328,11 @@ Future<void> chooseTemplate(BuildContext context) async {
     },
   );
   if (key == null || !context.mounted) return;
+  if (key.startsWith('plan:')) {
+    final p = app.plan(key.substring(5));
+    if (p != null) app.savePlan(p, activate: true);
+    return;
+  }
   final plan = key == 'empty' ? emptyPlan() : templateByKey(key).toPlan();
   app.savePlan(plan, activate: true);
   if (key == 'empty' && context.mounted) push(context, PlanEditorScreen(planId: plan.id));

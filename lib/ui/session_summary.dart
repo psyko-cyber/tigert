@@ -100,7 +100,9 @@ class SessionSummaryScreen extends StatelessWidget {
                 title: e.name,
                 subtitle: done.isEmpty
                     ? 'Nessuna serie fatta'
-                    : done.map((x) => e.type == 'k' ? '${x.reps} min' : (x.kg > 0 ? '${fKg(x.kg)}×${x.reps}' : '${x.reps}')).join(' · '),
+                    : done
+                        .map((x) => (x.isWarmup ? 'A ' : (x.isDrop ? 'D ' : '')) + (e.type == 'k' ? '${x.reps} min' : (x.kg > 0 ? '${fKg(x.kg)}×${x.reps}' : '${x.reps}')))
+                        .join(' · '),
                 trailing: StatusPill(
                   prs.any((p) => p.exId == e.ex) ? 'PR' : tag,
                   bg: prs.any((p) => p.exId == e.ex) || good ? TC.accent.withValues(alpha: 0.15) : (bad ? TC.danger.withValues(alpha: 0.12) : null),

@@ -31,10 +31,12 @@ import 'package:tigert/ui/hevy_import.dart';
 import 'package:tigert/ui/onboarding.dart';
 import 'package:tigert/ui/photo_estimate.dart';
 import 'package:tigert/ui/plan_editor.dart';
+import 'package:tigert/ui/plans.dart';
 import 'package:tigert/ui/profile.dart';
 import 'package:tigert/ui/progress.dart';
 import 'package:tigert/ui/quick_add.dart';
 import 'package:tigert/ui/recipes.dart';
+import 'package:tigert/ui/reorder.dart';
 import 'package:tigert/ui/score_detail.dart';
 import 'package:tigert/ui/session.dart';
 import 'package:tigert/ui/session_summary.dart';
@@ -45,6 +47,7 @@ import 'package:tigert/ui/settings/reminders_settings.dart';
 import 'package:tigert/ui/settings/sync_settings.dart';
 import 'package:tigert/ui/today.dart';
 import 'package:tigert/ui/training.dart';
+import 'package:tigert/ui/volume.dart';
 import 'package:tigert/ui/widgets.dart';
 
 late AppState app;
@@ -85,6 +88,10 @@ Future<void> _seed() async {
   final plan = templateByKey('ulpp').toPlan();
   final today = todayKey();
   app.store.put('plans', plan.id, plan.toMap());
+  // seconda scheda con un ciclo di 2 settimane
+  app.savePlan(Plan(id: 'cyc', name: 'Split su 2 settimane', startDate: today, cycle: 2, days: [
+    for (var i = 0; i < plan.days.length; i++) plan.days[i].copyWith(week: i < 2 ? 1 : 2),
+  ]));
   app.saveProfile(Profile(
     name: 'Luca',
     sex: 'm',
@@ -113,15 +120,22 @@ Future<void> _seed() async {
     app.setWeight(k, 78 - (d + 35) * 0.1);
     app.addEntry(app.entryFromFood(chicken, 200, date: k, meal: 'pranzo'));
     app.addEntry(app.entryFromFood(pasta, 90, date: k, meal: 'cena'));
-    app.saveHabit(HabitDay(date: k, water: 2500, sleep: 440, steps: 9000, alcohol: 0));
+    app.saveHabit(HabitDay(date: k, water: 2500, sleep: 440, steps: 9000, alcohol: 0, supp: d < 0 && d > -6 ? const ['Creatina'] : const []));
   }
+  final juice = catalog.foods.firstWhere((f) => fold(f.name).startsWith('spremuta'));
+  app.addEntry(app.entryFromFood(juice, 200, date: today, meal: 'colazione'));
   // una sessione conclusa (ieri) e una in corso (oggi)
   final done = buildSession(app, plan: plan, day: plan.days.first);
   final finished = done.copyWith(
     status: 'done',
     end: done.start + 3600 * 1000,
     items: [
-      for (final e in done.items) e.copyWith(sets: [for (final s in e.sets) s.copyWith(done: true, kg: s.kg == 0 ? 40 : s.kg, reps: 10, rpe: 8)]),
+      for (final (i, e) in done.items.indexed)
+        e.copyWith(sets: [
+          if (i == 0) const SetLog(t: setWarmup, kg: 20, reps: 10, done: true),
+          for (final s in e.sets) s.copyWith(done: true, kg: s.kg == 0 ? 40 : s.kg, reps: 10, rpe: 8),
+          if (i == 0) const SetLog(t: setDrop, kg: 25, reps: 8, done: true),
+        ]),
     ],
   );
   final y = Session.fromMap({...finished.toMap(), 'id': 'done1', 'date': addDaysKey(today, -1)});
@@ -186,6 +200,11 @@ void main() {
     'Allena': () => const TrainingScreen(),
     'Storico sessioni': () => const SessionHistoryScreen(),
     'Editor scheda': () => PlanEditorScreen(planId: app.activePlan!.id),
+    'Editor scheda ciclo': () => const PlanEditorScreen(planId: 'cyc'),
+    'Le mie schede': () => const PlansScreen(),
+    'Volume': () => const VolumeScreen(),
+    'Riordina': () => ReorderScreen(entries: [for (final e in app.session(activeSessionId)!.items) ReorderEntry(e.ex, e.name, '${e.plannedSets} serie')]),
+    'Quantità bevanda': () => FoodAmountScreen(food: app.catalog.foods.firstWhere((f) => fold(f.name).startsWith('spremuta')), date: todayKey(), meal: 'colazione'),
     'Esercizi': () => const ExercisePickerScreen(),
     'Sessione': () => SessionScreen(sessionId: activeSessionId),
     'Riepilogo sessione': () => SessionSummaryScreen(sessionId: doneSessionId, fresh: true),
@@ -207,7 +226,7 @@ void main() {
     'Importa da Hevy': () => const HevyImportScreen(),
   };
 
-  const sizes = {'telefono': Size(390, 844), 'desktop': Size(1280, 800)};
+  const sizes = {'telefono': Size(390, 844), 'desktop': Size(1280, 800), if (_shots) 'lungo': Size(390, 2200)};
 
   for (final s in sizes.entries) {
     for (final e in screens.entries) {

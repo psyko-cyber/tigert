@@ -12,7 +12,7 @@ import '../services/services.dart';
 import '../services/updates.dart';
 import 'charts.dart';
 import 'hevy_import.dart';
-import 'plan_editor.dart';
+import 'plans.dart';
 import 'settings/gemini_settings.dart';
 import 'settings/misc_settings.dart';
 import 'settings/profile_settings.dart';
@@ -130,11 +130,11 @@ class ProfileScreen extends StatelessWidget {
         ]),
       ),
       const SectionLabel('Impostazioni'),
-      _Setting(Icons.fitness_center_rounded, 'Editor scheda', plan == null ? 'Nessuna' : '${plan.name} · ${plan.days.length} sedute',
-          () => plan == null ? chooseTemplate(context) : push(context, PlanEditorScreen(planId: plan.id))),
+      _Setting(Icons.fitness_center_rounded, 'Le mie schede', plan == null ? 'Nessuna' : '${plan.name} attiva · ${app.plans.length} in tutto',
+          () => plan == null ? chooseTemplate(context) : push(context, const PlansScreen())),
       _Setting(Icons.move_to_inbox_rounded, 'Importa da Hevy', 'Storico, schede ed esercizi', () => push(context, const HevyImportScreen())),
       _Setting(Icons.notifications_none_rounded, 'Promemoria', _remindersSummary(p.reminders), () => push(context, const RemindersScreen())),
-      _Setting(Icons.checklist_rounded, 'Abitudini nel voto', '${p.habits.values.where((v) => v).length} attive', () => push(context, const HabitsSettingsScreen())),
+      _Setting(Icons.checklist_rounded, 'Abitudini nel voto', '${p.habits.entries.where((e) => e.value && e.key != 'supp').length} attive', () => push(context, const HabitsSettingsScreen())),
       _Setting(Icons.auto_awesome_rounded, 'Foto con Gemini', app.prefs.geminiKey.isEmpty ? 'Copia-incolla' : 'Chiave API attiva', () => push(context, const GeminiSettingsScreen())),
       ListenableBuilder(
         listenable: Services.sync,

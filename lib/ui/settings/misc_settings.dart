@@ -63,6 +63,17 @@ class HabitsSettingsScreen extends StatelessWidget {
           if (v != null) app.saveProfile(p.copyWith(steps: (v / 500).round() * 500));
         }),
         item('alcohol', 'Alcol', '0 bicchieri = punteggio pieno, poi scende'),
+        const SectionLabel('Integratori'),
+        Text('Da spuntare ogni giorno in Oggi, con i giorni di fila. Non contano nel voto.', style: TS.soft(t, 13)),
+        const SizedBox(height: 10),
+        item('supp', p.supplements.isEmpty ? 'Nessun integratore' : p.supplements.join(', '), 'Separali con una virgola, es. Creatina, Vitamina D',
+            target: 'Modifica', onTarget: () async {
+          final v = await askText(context, title: 'Integratori da seguire', initial: p.supplements.join(', '), hint: 'es. Creatina, Vitamina D');
+          if (v != null) {
+            final list = v.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toSet().toList();
+            app.saveProfile(p.copyWith(supplements: list));
+          }
+        }),
       ]),
     );
   }

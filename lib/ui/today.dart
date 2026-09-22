@@ -10,6 +10,7 @@ import '../data/models.dart';
 import '../logic/achievements.dart';
 import '../logic/nutrition.dart';
 import '../logic/progression.dart';
+import '../logic/supplements.dart';
 import '../logic/training.dart';
 import '../services/updates.dart';
 import 'achievements_screen.dart';
@@ -349,7 +350,8 @@ class _HabitsCard extends StatelessWidget {
         },
       ));
     }
-    if (items.isEmpty && !p.habitOn('alcohol')) return const SizedBox.shrink();
+    final supps = p.habitOn('supp') ? p.supplements : const <String>[];
+    if (items.isEmpty && !p.habitOn('alcohol') && supps.isEmpty) return const SizedBox.shrink();
     return TCard(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const Label('Abitudini'),
@@ -371,7 +373,70 @@ class _HabitsCard extends StatelessWidget {
             ],
           ]),
         ],
+        for (final s in supps) ...[
+          const SizedBox(height: 10),
+          _SupplementRow(name: s, day: h),
+        ],
       ]),
+    );
+  }
+}
+
+/// Integratore da spuntare: serie di giorni consecutivi e ultimi 7 giorni.
+class _SupplementRow extends StatelessWidget {
+  final String name;
+  final HabitDay day;
+  const _SupplementRow({required this.name, required this.day});
+  @override
+  Widget build(BuildContext context) {
+    final app = context.app;
+    final t = context.tt;
+    final taken = day.took(name);
+    final streak = supplementStreak(app.habitsByDate, name, today());
+    final last = supplementLastDays(app.habitsByDate, name, today());
+    return Material(
+      color: t.surf2,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => app.saveHabit(day.toggleSupp(name)),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+          child: Row(children: [
+            Icon(Icons.medication_rounded, size: 20, color: taken ? t.accentInk : t.dim),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(name, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: t.ink)),
+                const SizedBox(height: 4),
+                Row(children: [
+                  for (var i = 0; i < last.length; i++) ...[
+                    if (i > 0) const SizedBox(width: 4),
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: last[i] ? TC.accent : Colors.transparent,
+                        border: Border.all(color: last[i] ? TC.accent : t.dim, width: 1.2),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      streak == 0 ? 'da spuntare' : '$streak ${streak == 1 ? 'giorno' : 'giorni'} di fila',
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 12, color: t.dim),
+                    ),
+                  ),
+                ]),
+              ]),
+            ),
+            Icon(taken ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded, size: 28, color: taken ? TC.accent : t.dim),
+          ]),
+        ),
+      ),
     );
   }
 }

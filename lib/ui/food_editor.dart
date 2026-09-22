@@ -30,6 +30,7 @@ class _FoodEditorScreenState extends State<FoodEditorScreen> {
   late final fiber = TextEditingController(text: _v(widget.food?.fiber));
   late final portionLabel = TextEditingController(text: widget.food?.portions.isNotEmpty == true ? widget.food!.portions.first.label : '');
   late final portionG = TextEditingController(text: widget.food?.portions.isNotEmpty == true ? _v(widget.food!.portions.first.g) : '');
+  late bool ml = widget.food?.ml ?? isLiquidFood(widget.initialName ?? '', '');
   String? error;
 
   static String _v(double? x) => x == null || x == 0 ? '' : fDec(x, 1, true).replaceAll('.', '');
@@ -50,7 +51,7 @@ class _FoodEditorScreenState extends State<FoodEditorScreen> {
     if (n.isEmpty) return setState(() => error = 'Dai un nome all\'alimento.');
     final k = parseNum(kcal.text) ?? _computed;
     if (k <= 0 && (parseNum(p.text) ?? 0) + (parseNum(c.text) ?? 0) + (parseNum(f.text) ?? 0) <= 0) {
-      return setState(() => error = 'Inserisci almeno le calorie per 100 g.');
+      return setState(() => error = 'Inserisci almeno le calorie per 100 ${ml ? 'ml' : 'g'}.');
     }
     final pg = parseNum(portionG.text);
     final editing = widget.food != null && !widget.copy && !widget.food!.isSeed;
@@ -67,6 +68,7 @@ class _FoodEditorScreenState extends State<FoodEditorScreen> {
       fiber: parseNum(fiber.text) ?? 0,
       portions: pg != null && pg > 0 ? [Portion(portionLabel.text.trim().isEmpty ? 'porzione' : portionLabel.text.trim(), pg)] : const [],
       src: editing ? widget.food!.src : 'user',
+      ml: ml,
     );
     app.saveFood(food);
     Navigator.pop(context, food);
@@ -113,7 +115,17 @@ class _FoodEditorScreenState extends State<FoodEditorScreen> {
             ),
           ),
         ]),
-        const SectionLabel('Valori per 100 g (dall\'etichetta)'),
+        const SizedBox(height: 8),
+        Row(children: [
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('Liquido', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+              Text('Quantità in ml invece che in grammi', style: TS.muted(t, 12)),
+            ]),
+          ),
+          Switch(value: ml, onChanged: (v) => setState(() => ml = v)),
+        ]),
+        SectionLabel('Valori per 100 ${ml ? 'ml' : 'g'} (dall\'etichetta)'),
         _num('Energia', kcal, suffix: 'kcal'),
         if (kcal.text.isEmpty && _computed > 0)
           Padding(
@@ -136,7 +148,7 @@ class _FoodEditorScreenState extends State<FoodEditorScreen> {
         Row(children: [
           Expanded(flex: 3, child: TextField(controller: portionLabel, decoration: const InputDecoration(labelText: 'Nome', hintText: 'es. vasetto'))),
           const SizedBox(width: 10),
-          Expanded(flex: 2, child: _num('Peso', portionG)),
+          Expanded(flex: 2, child: _num(ml ? 'Volume' : 'Peso', portionG, suffix: ml ? 'ml' : 'g')),
         ]),
         if (error != null) NoteBox(icon: Icons.error_outline_rounded, text: error),
       ]),

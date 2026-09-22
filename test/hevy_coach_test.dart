@@ -178,7 +178,11 @@ void main() {
       expect(app.activePlan!.name, 'Da Hevy');
       final push = app.doneSessions.first;
       expect(push.items.first.ex, 'panca-piana');
-      expect(push.items.first.sets, hasLength(2), reason: 'niente riscaldamento');
+      // il riscaldamento arriva come serie di avvicinamento e non conta come lavoro
+      expect(push.items.first.sets.map((x) => x.t), [setWarmup, setWork, setWork]);
+      expect(push.items.first.workDone, hasLength(2));
+      expect(push.items.first.doneSets, 2);
+      expect(push.items.first.target.warm, 1);
       expect(push.items.firstWhere((e) => e.ex == 'tapis-roulant').sets.single.reps, 15, reason: '900 s = 15 min');
       // di nuovo: stessi id, nessun doppione
       importHevy(app, d, mapping: mapping, history: true, weights: false, plans: drafts);

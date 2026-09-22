@@ -10,7 +10,7 @@ import '../data/models.dart';
 class OffApi {
   static const _ua = 'Tigert/$appVersion (https://github.com/$githubRepo)';
   static const _fields =
-      'code,product_name,product_name_it,generic_name_it,brands,nutriments,serving_quantity,serving_size,product_quantity,quantity';
+      'code,product_name,product_name_it,generic_name_it,brands,nutriments,serving_quantity,serving_quantity_unit,serving_size,product_quantity,product_quantity_unit,quantity';
 
   /// Cerca un prodotto per codice a barre. Ritorna null se non esiste.
   static Future<Food?> byBarcode(String ean) async {
@@ -81,6 +81,9 @@ class OffApi {
     if (sq != null && sq > 0 && sq < 2000) portions.add(Portion('porzione', sq));
     final pq = _n(p['product_quantity']);
     if (pq != null && pq > 0 && pq <= 1500 && pq != sq) portions.add(Portion('confezione', pq));
+    final units = [p['product_quantity_unit'], p['serving_quantity_unit']].map((e) => (e ?? '').toString().toLowerCase());
+    final liquid = units.any((u) => u == 'ml' || u == 'cl' || u == 'l') ||
+        RegExp(r'\d\s*(ml|cl|l)\b', caseSensitive: false).hasMatch('${p['quantity'] ?? ''} ${p['serving_size'] ?? ''}');
     return Food(
       id: 'off:$code',
       name: name,
@@ -94,6 +97,7 @@ class OffApi {
       fiber: _n(n['fiber_100g']) ?? 0,
       portions: portions,
       src: 'off',
+      ml: liquid || isLiquidFood(name, ''),
     );
   }
 }

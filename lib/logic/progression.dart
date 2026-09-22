@@ -53,7 +53,7 @@ List<(Session, SessionEx)> exerciseRuns(AppState s, String exId, {int? beforeTs,
   for (final ss in s.doneSessions.reversed) {
     if (beforeTs != null && ss.start >= beforeTs) continue;
     for (final e in ss.items) {
-      if (e.ex == exId && e.doneSets > 0) {
+      if (e.ex == exId && e.workDone.isNotEmpty) {
         out.add((ss, e));
         break;
       }
@@ -73,7 +73,7 @@ Advice adviceFor(AppState s, PlanItem it, {int? beforeTs}) {
         ex?.isCardio == true ? 'Scegli un ritmo sostenibile per ${it.rMin}-${it.rMax} minuti.' : 'Scegli un carico con cui arrivi a ${it.rMin}-${it.rMax} ripetizioni a RPE $rpeTxt.');
   }
   final (lastSession, last) = runs.first;
-  final done = last.sets.where((x) => x.done).toList();
+  final done = last.workDone;
   final topKg = done.fold<double>(0, (a, b) => math.max(a, b.kg));
   final atTopKg = done.where((x) => (x.kg - topKg).abs() < 0.01).toList();
   final bestReps = atTopKg.fold<int>(0, (a, b) => math.max(a, b.reps));
@@ -119,8 +119,8 @@ Advice adviceFor(AppState s, PlanItem it, {int? beforeTs}) {
 
   // 4) stallo: 3 sedute allo stesso carico senza ripetizioni in più
   if (runs.length >= 3 && topKg > 0 && inc > 0) {
-    int repsAt(SessionEx e, double kg) => e.sets.where((x) => x.done && (x.kg - kg).abs() < 0.01).fold(0, (a, b) => a + b.reps);
-    double top(SessionEx e) => e.sets.where((x) => x.done).fold(0.0, (a, b) => math.max(a, b.kg));
+    int repsAt(SessionEx e, double kg) => e.workDone.where((x) => (x.kg - kg).abs() < 0.01).fold(0, (a, b) => a + b.reps);
+    double top(SessionEx e) => e.workDone.fold(0.0, (a, b) => math.max(a, b.kg));
     final same = runs.take(3).every((r) => (top(r.$2) - topKg).abs() < 0.01);
     if (same && repsAt(runs[0].$2, topKg) <= repsAt(runs[2].$2, topKg)) {
       final kg = _round(topKg * 0.9, inc);

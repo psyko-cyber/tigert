@@ -141,6 +141,18 @@ class RemindersScreen extends StatelessWidget {
             if (v != null && context.mounted) _save(context, r.copyWith(weightTime: v));
           },
         ),
+        if (context.app.profile!.habitOn('supp') && context.app.profile!.supplements.isNotEmpty)
+          _ReminderRow(
+            title: 'Integratori',
+            subtitle: 'Solo se ${context.app.profile!.supplements.join(', ')} non è ancora spuntato',
+            time: r.suppTime,
+            on: r.suppOn,
+            onToggle: (v) => _save(context, r.copyWith(suppOn: v)),
+            onTime: () async {
+              final v = await _time(context, r.suppTime);
+              if (v != null && context.mounted) _save(context, r.copyWith(suppTime: v));
+            },
+          ),
         _ReminderRow(
           title: 'Riepilogo serale',
           subtitle: 'Ti dice cosa manca per chiudere bene la giornata',

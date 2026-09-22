@@ -168,9 +168,13 @@ SessionEx buildSessionEx(AppState s, PlanItem it) {
   final ex = s.exercise(it.ex);
   final a = adviceFor(s, it);
   final last = s.lastPerformance(it.ex);
-  final sets = <SetLog>[];
+  final prevWork = last?.$2.sets.where((x) => x.isWork).toList() ?? const <SetLog>[];
+  final workKg = a.kg > 0 ? a.kg : (prevWork.isEmpty ? 0.0 : prevWork.first.kg);
+  final sets = <SetLog>[
+    for (var i = 0; i < it.warm; i++) warmupSet(workKg, i, it.warm, ex?.inc ?? 2.5, it.rMin),
+  ];
   for (var i = 0; i < it.sets; i++) {
-    final prev = (last != null && i < last.$2.sets.length) ? last.$2.sets[i] : null;
+    final prev = i < prevWork.length ? prevWork[i] : null;
     sets.add(SetLog(
       kg: a.kg > 0 ? a.kg : (prev?.kg ?? 0),
       reps: a.kind == AdviceKind.first ? it.rMin : a.reps,
@@ -179,6 +183,37 @@ SessionEx buildSessionEx(AppState s, PlanItem it) {
     ));
   }
   return SessionEx(ex: it.ex, name: ex?.name ?? 'Esercizio', type: ex?.type ?? 'c', target: it, sets: sets);
+}
+
+/// Serie di avvicinamento [i] di [n]: dal 40% all'80% del carico di lavoro, ripetizioni a scendere.
+SetLog warmupSet(double workKg, int i, int n, double inc, int rMin) {
+  if (workKg <= 0) return SetLog(t: setWarmup, reps: rMin);
+  final pct = n <= 1 ? 0.6 : 0.4 + 0.4 * i / (n - 1);
+  final step = inc > 0 ? inc : 2.5;
+  final kg = double.parse(((workKg * pct / step).round() * step).toStringAsFixed(2));
+  return SetLog(t: setWarmup, kg: kg, reps: math.max(3, 10 - 3 * i));
+}
+
+/// Etichetta della serie: 1, 2, 3 per le allenanti, A e D per avvicinamento e dropset.
+String setBadge(List<SetLog> sets, int i) {
+  final s = sets[i];
+  if (s.isWarmup) return 'A';
+  if (s.isDrop) return 'D';
+  return '${sets.take(i).where((x) => x.isWork).length + 1}';
+}
+
+String setTypeName(String t) => switch (t) {
+      setWarmup => 'Avvicinamento',
+      setDrop => 'Dropset',
+      _ => 'Allenante',
+    };
+
+/// La serie della volta scorsa corrispondente: stessa posizione tra le serie dello stesso tipo.
+SetLog? matchingPrevSet(List<SetLog> prev, List<SetLog> cur, int i) {
+  final t = cur[i].t;
+  final k = cur.take(i).where((x) => x.t == t).length;
+  final same = prev.where((x) => x.t == t).toList();
+  return k < same.length ? same[k] : null;
 }
 
 class Suggestion {
@@ -201,7 +236,7 @@ Suggestion suggestFor(AppState s, PlanItem it, {int? beforeTs}) {
 /// Suggerimento dal vivo mentre si allena: tetto raggiunto in questa sessione?
 Suggestion? liveTip(AppState s, SessionEx e) {
   final ex = s.exercise(e.ex);
-  final done = e.sets.where((x) => x.done).toList();
+  final done = e.workDone;
   final it = e.target;
   if (done.length < it.sets || done.isEmpty) return null;
   final atTop = done.every((x) => x.reps >= it.rMax && (x.rpe == null || x.rpe! <= it.rpe + 0.01));
@@ -240,7 +275,7 @@ List<PrEvent> _allPrs(AppState s) {
       if (e.type == 'k') continue;
       SetLog? top;
       for (final st in e.sets) {
-        if (!st.done || st.reps <= 0) continue;
+        if (!st.counts || st.reps <= 0) continue;
         final v = st.kg > 0 ? st.e1rm : st.reps.toDouble();
         if (top == null || v > (top.kg > 0 ? top.e1rm : top.reps.toDouble())) top = st;
       }
@@ -276,7 +311,7 @@ List<ExerciseBest> _bestByExercise(AppState s) {
       if (e.type == 'k') continue;
       names[e.ex] = e.name;
       for (final st in e.sets) {
-        if (st.done && st.reps > 0) (byEx[e.ex] ??= []).add((ss, st));
+        if (st.counts && st.reps > 0) (byEx[e.ex] ??= []).add((ss, st));
       }
     }
   }
@@ -308,7 +343,7 @@ List<(Session, SetLog)> exerciseHistory(AppState s, String exId) {
       if (e.ex != exId) continue;
       SetLog? top;
       for (final st in e.sets) {
-        if (!st.done) continue;
+        if (!st.counts) continue;
         if (top == null || st.e1rm > top.e1rm || (st.kg == 0 && st.reps > top.reps)) top = st;
       }
       if (top != null) out.add((ss, top));
@@ -320,10 +355,10 @@ List<(Session, SetLog)> exerciseHistory(AppState s, String exId) {
 /// Confronto di un esercizio con la volta precedente, per il riepilogo.
 String compareTag(AppState s, Session ss, SessionEx e) {
   final prev = s.lastPerformance(e.ex, beforeTs: ss.start);
-  final done = e.sets.where((x) => x.done).toList();
+  final done = e.workDone;
   if (done.isEmpty) return 'saltato';
   if (prev == null) return 'nuovo';
-  final pd = prev.$2.sets.where((x) => x.done).toList();
+  final pd = prev.$2.workDone;
   if (pd.isEmpty) return 'nuovo';
   final kgNow = done.map((x) => x.kg).reduce(math.max);
   final kgPrev = pd.map((x) => x.kg).reduce(math.max);

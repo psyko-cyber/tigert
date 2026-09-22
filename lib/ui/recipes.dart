@@ -157,9 +157,9 @@ class _RecipeEditorScreenState extends State<RecipeEditorScreen> {
             padding: const EdgeInsets.only(bottom: 8),
             child: RowTile(
               title: items[i].name,
-              subtitle: '${fG(items[i].g)} g · tocca per cambiare',
+              subtitle: '${fG(items[i].g)} ${items[i].unit} · tocca per cambiare',
               onTap: () async {
-                final v = await askNumber(context, title: items[i].name, initial: items[i].g, unit: 'g', decimals: 0, max: 10000);
+                final v = await askNumber(context, title: items[i].name, initial: items[i].g, unit: items[i].unit, decimals: 0, max: 10000);
                 if (v != null) setState(() => items[i] = items[i].withGrams(v));
               },
               trailing: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -275,7 +275,7 @@ class _RecipeAddScreenState extends State<RecipeAddScreen> {
             padding: const EdgeInsets.symmetric(vertical: 3),
             child: Row(children: [
               Expanded(child: Text(it.name, style: TS.body(t))),
-              Text('${fG(it.g)} g · ${fInt(it.macro.kcal)} kcal', style: TS.muted(t)),
+              Text('${fG(it.g)} ${it.unit} · ${fInt(it.macro.kcal)} kcal', style: TS.muted(t)),
             ]),
           ),
         const SectionLabel('Pasto'),

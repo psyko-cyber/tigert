@@ -11,6 +11,7 @@ import '../core/ids.dart';
 import '../data/app_state.dart';
 import '../data/models.dart';
 import '../logic/score.dart';
+import '../logic/supplements.dart';
 import '../logic/training.dart';
 
 class _Planned {
@@ -156,6 +157,10 @@ class NotificationService {
       if (r.eveningOn) {
         out.add(_Planned(500 + d, at(r.eveningTime), 'Chiudi la giornata', 'Controlla il voto e cosa manca per salire.'));
       }
+      final supps = pendingSupplements(p, isToday ? app.habit(key) : HabitDay(date: key));
+      if (r.suppOn && supps.isNotEmpty) {
+        out.add(_Planned(600 + d, at(r.suppTime), 'Integratori', _suppBody(supps)));
+      }
     }
     return out.where((e) => e.at.isAfter(now)).toList();
   }
@@ -236,6 +241,10 @@ class NotificationService {
     if (r.weightOn) {
       check('weight', r.weightTime, 'Peso', 'Pesati prima di colazione.', () => app.weightOn(k) == null);
     }
+    if (r.suppOn) {
+      final supps = pendingSupplements(p, app.habit(k));
+      if (supps.isNotEmpty) check('supp', r.suppTime, 'Integratori', _suppBody(supps), () => pendingSupplements(p, app.habit(k)).isNotEmpty);
+    }
     if (r.eveningOn) {
       check('evening', r.eveningTime, 'Chiudi la giornata', 'Voto attuale ${fDec(app.score(k).v)}: guarda cosa manca per salire.', () => true);
     }
@@ -265,6 +274,8 @@ class NotificationService {
       await _plugin.cancel(id: _restId);
     } catch (_) {}
   }
+
+  static String _suppBody(List<String> s) => 'Hai preso ${s.join(' e ')}? Spunta in Oggi per non perdere la serie.';
 
   /// Per il voto serale su desktop: messaggio sintetico.
   String eveningSummary(DayScore s) => s.tips.isEmpty ? 'Giornata completa.' : s.tips.first.text;
