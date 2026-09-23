@@ -705,11 +705,27 @@ class HabitDay {
   final int? steps;
   final int? alcohol; // bicchieri
   final List<String> supp; // integratori presi
-  // giorno di allenamento giustificato: motivo (offReasons), seduta saltata e zone da evitare
+  // giorno di allenamento giustificato: motivo (offReasons), seduta saltata, zone da evitare
+  // e, se la seduta è solo rimandata, il giorno in cui si fa (moveTo)
   final String off;
   final String? offDay;
   final List<String> avoid;
-  const HabitDay({required this.date, this.water = 0, this.sleep, this.steps, this.alcohol, this.supp = const [], this.off = '', this.offDay, this.avoid = const []});
+  final String? moveTo;
+  // giorno di allenamento in più: qui arriva la seduta rimandata dal giorno [moved]
+  final String? moved;
+  const HabitDay({
+    required this.date,
+    this.water = 0,
+    this.sleep,
+    this.steps,
+    this.alcohol,
+    this.supp = const [],
+    this.off = '',
+    this.offDay,
+    this.avoid = const [],
+    this.moveTo,
+    this.moved,
+  });
   Map<String, dynamic> toMap() => {
         'date': date,
         'water': water,
@@ -720,6 +736,8 @@ class HabitDay {
         if (off.isNotEmpty) 'off': off,
         if (off.isNotEmpty && offDay != null) 'offDay': offDay,
         if (off.isNotEmpty && avoid.isNotEmpty) 'avoid': avoid,
+        if (off.isNotEmpty && moveTo != null) 'moveTo': moveTo,
+        if (moved != null) 'moved': moved,
       };
   factory HabitDay.fromMap(Map m) => HabitDay(
         date: _s(m['date']),
@@ -731,6 +749,8 @@ class HabitDay {
         off: _s(m['off']),
         offDay: m['offDay'] as String?,
         avoid: ((m['avoid'] as List?) ?? const []).map((e) => e.toString()).toList(),
+        moveTo: m['moveTo'] as String?,
+        moved: m['moved'] as String?,
       );
   HabitDay copyWith({int? water, int? sleep, int? steps, int? alcohol, bool clearAlcohol = false, List<String>? supp}) => HabitDay(
         date: date,
@@ -742,10 +762,17 @@ class HabitDay {
         off: off,
         offDay: offDay,
         avoid: avoid,
+        moveTo: moveTo,
+        moved: moved,
       );
-  HabitDay withOff(String reason, {String? dayId, List<String> avoid = const []}) =>
-      HabitDay(date: date, water: water, sleep: sleep, steps: steps, alcohol: alcohol, supp: supp, off: reason, offDay: dayId, avoid: avoid);
+  HabitDay withOff(String reason, {String? dayId, List<String> avoid = const [], String? moveTo}) => HabitDay(
+      date: date, water: water, sleep: sleep, steps: steps, alcohol: alcohol, supp: supp, off: reason, offDay: dayId, avoid: avoid, moveTo: moveTo, moved: moved);
+  HabitDay withMoved(String? from) => HabitDay(
+      date: date, water: water, sleep: sleep, steps: steps, alcohol: alcohol, supp: supp, off: off, offDay: offDay, avoid: avoid, moveTo: moveTo, moved: from);
   bool get isOff => off.isNotEmpty;
+
+  /// Seduta rimandata a un altro giorno (non saltata: resta nel giro).
+  bool get postponed => isOff && moveTo != null;
   bool took(String name) => supp.contains(name);
   HabitDay toggleSupp(String name) => copyWith(supp: took(name) ? supp.where((e) => e != name).toList() : [...supp, name]);
 }

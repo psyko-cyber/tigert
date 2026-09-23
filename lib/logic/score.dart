@@ -109,7 +109,8 @@ DayScore computeScore(AppState s, String date) {
   final planned = daySessions.fold<int>(0, (a, x) => a + x.plannedSets);
   final done = daySessions.fold<int>(0, (a, x) => a + x.doneSets);
   // giorno giustificato (dolore, malattia...): se non ti alleni conta come riposo
-  final trainingDay = (isTrainingDay(p, d) && !h.isOff) || daySessions.isNotEmpty;
+  // un giorno che riceve una seduta rimandata conta come giorno di allenamento
+  final trainingDay = ((isTrainingDay(p, d) || h.moved != null) && !h.isOff) || daySessions.isNotEmpty;
   double? allen;
   if (trainingDay) {
     if (daySessions.isEmpty) {
@@ -178,7 +179,12 @@ DayScore computeScore(AppState s, String date) {
     if (rest)
       ScorePart('Allenamento', 0, 0, [
         h.isOff
-            ? ScoreRow('Giorno giustificato: ${(offReasons[h.off] ?? h.off).toLowerCase()}', 'non penalizzato', Tone.dim)
+            ? ScoreRow(
+                h.postponed
+                    ? 'Seduta rimandata a ${giorni[fromKey(h.moveTo!).weekday - 1].toLowerCase()}: ${(offReasons[h.off] ?? h.off).toLowerCase()}'
+                    : 'Giorno giustificato: ${(offReasons[h.off] ?? h.off).toLowerCase()}',
+                'non penalizzato',
+                Tone.dim)
             : const ScoreRow('Giorno di riposo programmato', 'non penalizzato', Tone.dim),
         const ScoreRow('Peso redistribuito', 'su nutrizione e abitudini', Tone.dim),
       ])

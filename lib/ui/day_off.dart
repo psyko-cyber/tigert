@@ -9,8 +9,9 @@ import '../logic/training.dart';
 import 'training.dart';
 import 'widgets.dart';
 
-/// "Non riesci a fare la seduta?": motivo e zone da evitare. Il giorno diventa
-/// giustificato (il voto non peggiora) e la seduta esce dal giro.
+/// "Non riesci a fare la seduta?": motivo, quando la fai (o se la salti) e zone
+/// da evitare. Il giorno diventa giustificato (il voto non peggiora); la seduta
+/// si sposta al giorno scelto oppure esce dal giro.
 Future<void> showDayOffSheet(BuildContext context, WeekSlot slot) {
   return showModalBottomSheet(
     context: context,
@@ -32,6 +33,22 @@ class _DayOffSheetState extends State<DayOffSheet> {
   bool get past => slot.date.isBefore(today());
   late String reason = slot.off?.off ?? 'dolore';
   late final Set<String> zones = {...(slot.off?.avoid ?? (day == null ? const <String>[] : dayZones(context.appRead, day!)))};
+  // giorno in cui fare la seduta (null = la salto)
+  late String? moveTo = slot.off?.moveTo;
+  late bool whenTouched = slot.off != null;
+
+  /// Giorni in cui spostarla: dal giorno dopo (o da oggi, per i giorni passati) per una settimana.
+  List<DateTime> get options {
+    final t = today();
+    final next = slot.date.add(const Duration(days: 1));
+    final from = next.isBefore(t) ? t : next;
+    return [for (var i = 0; i < 7; i++) dateOnly(from.add(Duration(days: i)))];
+  }
+
+  void _reason(String k) => setState(() {
+        reason = k;
+        if (!whenTouched) moveTo = k == 'impegno' ? dayKey(options.first) : null;
+      });
 
   @override
   Widget build(BuildContext context) {
@@ -41,7 +58,10 @@ class _DayOffSheetState extends State<DayOffSheet> {
     final name = day?.name ?? 'la seduta';
     final i = plan == null || day == null ? -1 : plan.days.indexWhere((d) => d.id == day!.id);
     final next = i < 0 ? null : plan!.days[(i + 1) % plan.days.length];
-    final pain = reason == 'dolore' && !past;
+    final target = moveTo == null ? null : fromKey(moveTo!);
+    final pain = reason == 'dolore' && !past && target == null;
+    final targetTrains = target != null && (app.profile?.trainingDays.contains(target.weekday) ?? false);
+    final advice = target == null || day == null ? null : moveAdvice(app, day!, target, from: dayKey(slot.date), options: options);
     return SafeArea(
       child: SingleChildScrollView(
         padding: EdgeInsets.fromLTRB(20, 0, 20, 20 + MediaQuery.viewInsetsOf(context).bottom),
@@ -50,8 +70,37 @@ class _DayOffSheetState extends State<DayOffSheet> {
           Text(longDate(slot.date), style: TS.muted(t)),
           const SectionLabel('Motivo'),
           Wrap(spacing: 8, runSpacing: 8, children: [
-            for (final MapEntry(key: k, value: l) in offReasons.entries) PillChip(l, selected: reason == k, onTap: () => setState(() => reason = k)),
+            for (final MapEntry(key: k, value: l) in offReasons.entries) PillChip(l, selected: reason == k, onTap: () => _reason(k)),
           ]),
+          const SectionLabel('Quando la fai?'),
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            PillChip('La salto', selected: moveTo == null, onTap: () => setState(() {
+                  moveTo = null;
+                  whenTouched = true;
+                })),
+            for (final d in options)
+              PillChip(_chip(app, d), selected: moveTo == dayKey(d), onTap: () => setState(() {
+                    moveTo = dayKey(d);
+                    whenTouched = true;
+                  })),
+          ]),
+          if (advice != null)
+            NoteBox(
+              icon: Icons.tips_and_updates_outlined,
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(
+                  advice.better == null
+                      ? moveAdviceText(advice, name, target!)
+                      : '${sameMusclesText(advice, name, target!)} Ti conviene ${whenLabel(advice.better!, long: true)}: '
+                          'il giorno prima e quello dopo non alleni gli stessi muscoli.',
+                  style: TS.body(t),
+                ),
+                if (advice.better != null) ...[
+                  const SizedBox(height: 10),
+                  SmallButton('Scegli ${whenLabel(advice.better!, long: true)}', accent: true, onTap: () => setState(() => moveTo = dayKey(advice.better!))),
+                ],
+              ]),
+            ),
           if (pain) ...[
             const SectionLabel('Cosa non puoi allenare'),
             Wrap(spacing: 8, runSpacing: 8, children: [
@@ -63,13 +112,23 @@ class _DayOffSheetState extends State<DayOffSheet> {
             margin: const EdgeInsets.only(top: 16),
             text: [
               'Il voto non peggiora: se non ti alleni, il giorno conta come riposo.',
-              if (next != null && next.id != day?.id) '$name esce dal giro: la prossima seduta sarà ${next.name}.',
+              if (target != null) ...[
+                '$name si sposta a ${whenLabel(target, long: true)}.',
+                targetTrains ? 'Le sedute dopo slittano di un giorno di allenamento.' : 'Quel giorno diventa di allenamento, solo per questa volta.',
+              ] else if (next != null && next.id != day?.id)
+                '$name esce dal giro: la prossima seduta sarà ${next.name}.',
               if (pain && zones.isNotEmpty) 'Ti preparo una seduta senza ${joinIt(zones.map((z) => z.toLowerCase()).toList())}, con i muscoli che hai allenato meno questa settimana.',
             ].join(' '),
           ),
           const SizedBox(height: 16),
-          PrimaryButton(slot.off != null ? 'Salva' : 'Conferma', onTap: () {
-            app.setDayOff(dayKey(slot.date), reason, dayId: day?.id, avoid: pain ? [for (final z in bodyZones.keys) if (zones.contains(z)) z] : const []);
+          PrimaryButton(target != null ? 'Sposta a ${whenLabel(target, long: true)}' : (slot.off != null ? 'Salva' : 'Conferma'), onTap: () {
+            app.setDayOff(
+              dayKey(slot.date),
+              reason,
+              dayId: day?.id,
+              avoid: pain ? [for (final z in bodyZones.keys) if (zones.contains(z)) z] : const [],
+              moveTo: moveTo,
+            );
             Navigator.pop(context);
           }),
           if (slot.off != null) ...[
@@ -83,6 +142,33 @@ class _DayOffSheetState extends State<DayOffSheet> {
       ),
     );
   }
+}
+
+/// Chip del giorno, con la seduta già in programma quel giorno.
+String _chip(AppState app, DateTime d) {
+  final planned = slotOn(app, d)?.day?.name;
+  if (planned == null) return whenLabel(d);
+  return '${whenLabel(d)} · ${planned.length > 14 ? '${planned.substring(0, 13)}…' : planned}';
+}
+
+/// "Full upper giovedì e Gambe & Core venerdì allenano entrambe Petto e Spalle."
+String sameMusclesText(MoveAdvice a, String name, DateTime target) =>
+    '$name ${whenLabel(target, long: true)} e ${a.neighborName} ${whenLabel(a.neighbor, long: true)} allenano entrambe '
+    '${joinIt(a.muscles.map((m) => m.toLowerCase()).toList())}.';
+
+/// Consiglio senza cambiare la scheda: alleggerire la seconda delle due sedute.
+String moveAdviceText(MoveAdvice a, String name, DateTime target) {
+  final later = a.neighbor.isAfter(target) ? a.neighbor : target;
+  return '${sameMusclesText(a, name, target)} Senza cambiare la scheda: ${whenLabel(later, long: true)} fai 1-2 serie in meno di '
+      '${joinIt(a.muscles.map((m) => m.toLowerCase()).toList())}, o tienile a RPE più basso.';
+}
+
+/// "Domani", "Ven 26" ([long]: "domani", "venerdì 26").
+String whenLabel(DateTime d, {bool long = false}) {
+  final diff = daysBetween(today(), d);
+  if (diff == 0) return long ? 'oggi' : 'Oggi';
+  if (diff == 1) return long ? 'domani' : 'Domani';
+  return long ? '${giorni[d.weekday - 1].toLowerCase()} ${d.day}' : '${giorniBrevi[d.weekday - 1]} ${d.day}';
 }
 
 /// Seduta alternativa di un giorno giustificato per dolore.

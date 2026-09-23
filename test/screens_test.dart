@@ -206,6 +206,11 @@ void main() {
     'Diario vuoto': () => DiaryScreen(date: addDaysKey(todayKey(), 1)),
     'Allena': () => const TrainingScreen(),
     'Giustifica': () => DayOffSheet(slot: WeekSlot(today(), app.activePlan!.days[1], SlotStatus.todo, null)),
+    'Rimanda': () {
+      final d = app.activePlan!.days[1];
+      final off = HabitDay(date: todayKey()).withOff('impegno', dayId: d.id, moveTo: addDaysKey(todayKey(), 1));
+      return DayOffSheet(slot: WeekSlot(today(), d, SlotStatus.off, null, off: off));
+    },
     'Alternativa': () {
       final lower = app.activePlan!.days[1];
       final off = HabitDay(date: todayKey()).withOff('dolore', dayId: lower.id, avoid: const ['Gambe']);

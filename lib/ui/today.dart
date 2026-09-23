@@ -186,6 +186,11 @@ class _WorkoutCard extends StatelessWidget {
       sub = 'In corso · ${active.doneSets}/${active.plannedSets} serie';
       icon = Icons.play_arrow_rounded;
       onTap = () => push(context, SessionScreen(sessionId: active.id));
+    } else if (slot != null && slot.status == SlotStatus.off && slot.off!.postponed) {
+      final to = fromKey(slot.off!.moveTo!);
+      title = '${slot.day?.name ?? 'Seduta'} · rimandata';
+      sub = 'La fai ${giorni[to.weekday - 1].toLowerCase()}: oggi conta come riposo';
+      icon = Icons.event_repeat_rounded;
     } else if (slot != null && slot.status == SlotStatus.off) {
       final avoid = slot.off!.avoid;
       title = avoid.isEmpty ? '${slot.day?.name ?? 'Seduta'} · giustificata' : 'Al posto di ${slot.day?.name ?? 'oggi'}';

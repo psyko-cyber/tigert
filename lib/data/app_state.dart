@@ -365,12 +365,30 @@ class AppState extends ChangeNotifier {
     saveHabit(h.copyWith(water: (h.water + ml).clamp(0, 10000)));
   }
 
-  /// Giorno giustificato: la seduta [dayId] esce dal giro e, se non ti alleni,
-  /// il giorno conta come riposo nel voto.
-  void setDayOff(String date, String reason, {String? dayId, List<String> avoid = const []}) =>
-      saveHabit(habit(date).withOff(reason, dayId: dayId, avoid: avoid));
+  /// Giorno giustificato: se non ti alleni conta come riposo nel voto. La seduta
+  /// [dayId] esce dal giro, oppure con [moveTo] si fa quel giorno (che diventa
+  /// un giorno di allenamento in più) e le sedute dopo scalano.
+  void setDayOff(String date, String reason, {String? dayId, List<String> avoid = const [], String? moveTo}) {
+    store.batch(() {
+      final old = habit(date);
+      if (old.moveTo != null && old.moveTo != moveTo) _unmove(old.moveTo!, date);
+      saveHabit(old.withOff(reason, dayId: dayId, avoid: avoid, moveTo: moveTo));
+      if (moveTo != null) saveHabit(habit(moveTo).withMoved(date));
+    });
+  }
 
-  void clearDayOff(String date) => saveHabit(habit(date).withOff(''));
+  void clearDayOff(String date) {
+    store.batch(() {
+      final old = habit(date);
+      if (old.moveTo != null) _unmove(old.moveTo!, date);
+      saveHabit(old.withOff(''));
+    });
+  }
+
+  void _unmove(String target, String from) {
+    final h = habit(target);
+    if (h.moved == from) saveHabit(h.withMoved(null));
+  }
 
   // ================================================================ esercizi
 

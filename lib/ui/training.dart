@@ -126,6 +126,15 @@ class TrainingScreen extends StatelessWidget {
           padding: const EdgeInsets.only(bottom: 10),
           child: _SlotRow(slot: s),
         ),
+      // seduta rimandata vicino a un'altra con gli stessi muscoli: un consiglio, la scheda non cambia
+      for (final s in slots)
+        if (s.movedFrom != null && s.day != null && s.session == null && !s.date.isBefore(today()))
+          if (moveAdvice(app, s.day!, s.date, from: s.movedFrom) case final a?)
+            NoteBox(
+              icon: Icons.tips_and_updates_outlined,
+              margin: const EdgeInsets.only(bottom: 12),
+              text: '${moveAdviceText(a, s.day!.name, s.date)} Per cambiare giorno tocca ${giorni[fromKey(s.movedFrom!).weekday - 1].toLowerCase()}.',
+            ),
       TCard(
         margin: const EdgeInsets.only(top: 4),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -219,12 +228,16 @@ class _SlotRow extends StatelessWidget {
         : off
             ? [
                 (offReasons[s.off!.off] ?? 'Giustificato').split(' ').first,
+                if (s.off!.postponed) 'la fai ${whenLabel(fromKey(s.off!.moveTo!), long: true)}',
                 if (s.off!.avoid.isNotEmpty) 'niente ${s.off!.avoid.map((z) => z.toLowerCase()).join(', ')}',
                 'non penalizza il voto',
               ].join(' · ')
-            : s.day != null
-                ? '${s.day!.items.take(4).map((i) => app.exerciseName(i.ex).split(' ').first).join(', ')} · ${s.day!.totalSets} serie'
-                : 'La seduta resta in coda · tocca per giustificare';
+            : [
+                if (s.movedFrom != null) 'Rimandata da ${giorni[fromKey(s.movedFrom!).weekday - 1].toLowerCase()}',
+                s.day != null
+                    ? '${s.day!.items.take(4).map((i) => app.exerciseName(i.ex).split(' ').first).join(', ')} · ${s.day!.totalSets} serie'
+                    : 'La seduta resta in coda · tocca per giustificare',
+              ].join(' · ');
     return TCard(
       borderColor: isToday ? TC.accent : null,
       padding: const EdgeInsets.all(14),

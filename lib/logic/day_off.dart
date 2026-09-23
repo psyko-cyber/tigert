@@ -159,5 +159,73 @@ Alternative alternativeFor(AppState s, DateTime date, PlanDay skipped, List<Stri
   );
 }
 
+/// Serie dirette per muscolo di una seduta della scheda.
+Map<String, double> dayMuscles(AppState s, PlanDay d) {
+  final m = <String, double>{};
+  for (final it in d.items) {
+    final mu = s.exercise(it.ex)?.muscle;
+    if (mu != null) m[mu] = (m[mu] ?? 0) + it.sets;
+  }
+  return m;
+}
+
+/// Serie per muscolo di quello che è in calendario in un giorno ([skip]: il giorno
+/// da cui parte la seduta rimandata, che resterà libero).
+Map<String, double> _musclesOn(AppState s, DateTime d, String? skip) {
+  if (dayKey(d) == skip) return const {};
+  final sl = slotOn(s, d);
+  if (sl == null || sl.status == SlotStatus.off || sl.status == SlotStatus.missed) return const {};
+  final ss = sl.session;
+  if (ss == null) return sl.day == null ? const {} : dayMuscles(s, sl.day!);
+  final m = <String, double>{};
+  for (final e in ss.items) {
+    final mu = s.exercise(e.ex)?.muscle;
+    if (mu != null) m[mu] = (m[mu] ?? 0) + e.sets.where((x) => !x.isWarmup).length;
+  }
+  return m;
+}
+
+class MoveAdvice {
+  final DateTime neighbor; // giorno vicino con gli stessi muscoli
+  final String neighborName;
+  final List<String> muscles; // muscoli in comune
+  final DateTime? better; // giorno libero senza sovrapposizioni, se c'è
+  const MoveAdvice(this.neighbor, this.neighborName, this.muscles, this.better);
+}
+
+/// Rimandare [moving] a [target]: se il giorno prima o dopo c'è una seduta che
+/// allena gli stessi muscoli principali (almeno 3 serie in entrambe) lo segnala,
+/// e propone tra [options] un giorno senza sovrapposizioni (preferendo i giorni
+/// liberi, così le altre sedute non slittano). Non cambia la scheda.
+MoveAdvice? moveAdvice(AppState s, PlanDay moving, DateTime target, {String? from, List<DateTime> options = const []}) {
+  final mine = dayMuscles(s, moving);
+  List<String> clash(Map<String, double> other) => [
+        for (final m in mainMuscles)
+          if ((mine[m] ?? 0) >= 3 && (other[m] ?? 0) >= 3) m,
+      ];
+  (DateTime, List<String>)? worst(DateTime d) {
+    (DateTime, List<String>)? out;
+    for (final n in [d.subtract(const Duration(days: 1)), d.add(const Duration(days: 1))]) {
+      final c = clash(_musclesOn(s, n, from));
+      if (c.isNotEmpty && (out == null || c.length > out.$2.length)) out = (n, c);
+    }
+    return out;
+  }
+
+  final w = worst(target);
+  if (w == null) return null;
+  final trains = s.profile?.trainingDays ?? const <int>[];
+  DateTime? better;
+  for (final d in options) {
+    if (d == target || trains.contains(d.weekday) || slotOn(s, d)?.day != null) continue;
+    if (worst(d) == null) {
+      better = d;
+      break;
+    }
+  }
+  final sl = slotOn(s, w.$1);
+  return MoveAdvice(w.$1, sl?.session?.name ?? sl?.day?.name ?? 'la seduta', w.$2, better);
+}
+
 /// "Spalle, Petto e Tricipiti"
 String joinIt(List<String> l) => l.length <= 1 ? l.join() : '${l.take(l.length - 1).join(', ')} e ${l.last}';
