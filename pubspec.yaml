@@ -29,7 +29,8 @@ dependencies:
   qr_flutter: ^4.1.0
   wakelock_plus: ^1.8.0
   image: ^4.10.1
-
+  google_sign_in: ^7.2.0
+  crypto: ^3.0.7
 dev_dependencies:
   flutter_test:
     sdk: flutter

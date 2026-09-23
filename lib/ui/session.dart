@@ -13,7 +13,6 @@ import '../data/models.dart';
 import '../logic/training.dart';
 import '../services/services.dart';
 import 'exercise_picker.dart';
-import 'plan_editor.dart';
 import 'reorder.dart';
 import 'session_summary.dart';
 import 'shell.dart';

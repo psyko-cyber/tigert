@@ -1,5 +1,6 @@
 import '../data/app_state.dart';
 import 'desktop.dart';
+import 'drive_backup.dart';
 import 'notifications.dart';
 import 'sync.dart';
 
@@ -8,5 +9,6 @@ class Services {
   static late AppState app;
   static late SyncService sync;
   static late NotificationService notif;
+  static late DriveBackup drive;
   static DesktopService? desktop;
 }

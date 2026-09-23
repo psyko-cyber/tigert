@@ -148,7 +148,7 @@ class NotificationService {
           i++;
         }
       }
-      if (r.trainingOn && p.trainingDays.contains(day.weekday) && !(isToday && (app.sessionsByDate[key]?.isNotEmpty ?? false))) {
+      if (r.trainingOn && p.trainingDays.contains(day.weekday) && !app.habit(key).isOff && !(isToday && (app.sessionsByDate[key]?.isNotEmpty ?? false))) {
         out.add(_Planned(300 + d, at(r.trainingTime), 'Allenamento', trainingReminderBody(app, day)));
       }
       if (r.weightOn && !(isToday && app.weightOn(key) != null)) {
@@ -235,7 +235,7 @@ class NotificationService {
         i++;
       }
     }
-    if (r.trainingOn && p.trainingDays.contains(now.weekday)) {
+    if (r.trainingOn && p.trainingDays.contains(now.weekday) && !app.habit(k).isOff) {
       check('train', r.trainingTime, 'Allenamento', trainingReminderBody(app, now), () => app.sessionsByDate[k]?.isEmpty ?? true);
     }
     if (r.weightOn) {

@@ -13,6 +13,7 @@ import '../services/updates.dart';
 import 'charts.dart';
 import 'hevy_import.dart';
 import 'plans.dart';
+import 'settings/drive_settings.dart';
 import 'settings/gemini_settings.dart';
 import 'settings/misc_settings.dart';
 import 'settings/profile_settings.dart';
@@ -145,6 +146,10 @@ class ProfileScreen extends StatelessWidget {
               : (s.paired ? (s.lastSyncAt == null ? 'Abbinato' : 'Ultima ${relDay(s.lastSyncAt!).toLowerCase()} ${hhmm(s.lastSyncAt!)}') : 'Non abbinato');
           return _Setting(Icons.wifi_rounded, 'Sincronizzazione Wi-Fi', sub, () => push(context, const SyncSettingsScreen()));
         },
+      ),
+      ListenableBuilder(
+        listenable: Services.drive,
+        builder: (context, _) => _Setting(Icons.cloud_outlined, 'Backup su Google Drive', driveSummary(), () => push(context, const DriveSettingsScreen())),
       ),
       _Setting(Icons.dark_mode_outlined, 'Tema', switch (app.prefs.themeMode) { ThemeMode.dark => 'Scuro', ThemeMode.light => 'Chiaro', _ => 'Come il sistema' },
           () => showThemeSheet(context)),

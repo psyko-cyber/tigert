@@ -108,7 +108,8 @@ DayScore computeScore(AppState s, String date) {
   final daySessions = (s.sessionsByDate[date] ?? const <Session>[]);
   final planned = daySessions.fold<int>(0, (a, x) => a + x.plannedSets);
   final done = daySessions.fold<int>(0, (a, x) => a + x.doneSets);
-  final trainingDay = isTrainingDay(p, d) || daySessions.isNotEmpty;
+  // giorno giustificato (dolore, malattia...): se non ti alleni conta come riposo
+  final trainingDay = (isTrainingDay(p, d) && !h.isOff) || daySessions.isNotEmpty;
   double? allen;
   if (trainingDay) {
     if (daySessions.isEmpty) {
@@ -175,9 +176,11 @@ DayScore computeScore(AppState s, String date) {
       ScoreRow('Proteine ${fInt(t.p)} / ${p.protein} g', '${fDec(pMax * pS)} / ${fDec(pMax)}', pS > 0.9 ? Tone.good : (pS > 0.5 ? Tone.warn : Tone.bad)),
     ]),
     if (rest)
-      const ScorePart('Allenamento', 0, 0, [
-        ScoreRow('Giorno di riposo programmato', 'non penalizzato', Tone.dim),
-        ScoreRow('Peso redistribuito', 'su nutrizione e abitudini', Tone.dim),
+      ScorePart('Allenamento', 0, 0, [
+        h.isOff
+            ? ScoreRow('Giorno giustificato: ${(offReasons[h.off] ?? h.off).toLowerCase()}', 'non penalizzato', Tone.dim)
+            : const ScoreRow('Giorno di riposo programmato', 'non penalizzato', Tone.dim),
+        const ScoreRow('Peso redistribuito', 'su nutrizione e abitudini', Tone.dim),
       ])
     else
       ScorePart('Allenamento', aMax * allenV, aMax, [

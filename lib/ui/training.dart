@@ -5,9 +5,11 @@ import '../core/theme.dart';
 import '../data/app_state.dart';
 import '../data/catalog.dart';
 import '../data/models.dart';
+import '../logic/day_off.dart';
 import '../logic/progression.dart';
 import '../logic/training.dart';
 import 'coach.dart';
+import 'day_off.dart';
 import 'hevy_import.dart';
 import 'plan_editor.dart';
 import 'plans.dart';
@@ -18,7 +20,8 @@ import 'volume.dart';
 import 'widgets.dart';
 
 /// Avvia (o riprende) una sessione per un giorno della scheda.
-Future<void> startSession(BuildContext context, {PlanDay? day, bool free = false}) async {
+/// [offPlan]: seduta fuori dal giro della scheda (l'alternativa di un giorno giustificato).
+Future<void> startSession(BuildContext context, {PlanDay? day, bool free = false, bool offPlan = false}) async {
   final app = context.appRead;
   final active = app.activeSession;
   if (active != null) {
@@ -45,7 +48,7 @@ Future<void> startSession(BuildContext context, {PlanDay? day, bool free = false
     }
   }
   final plan = app.activePlan;
-  final s = buildSession(app, plan: free ? null : plan, day: free ? null : day, name: free ? 'Allenamento libero' : null);
+  final s = buildSession(app, plan: free || offPlan ? null : plan, day: free ? null : day, name: free ? 'Allenamento libero' : null);
   app.saveSession(s);
   if (context.mounted) await push(context, SessionScreen(sessionId: s.id));
 }
@@ -74,6 +77,9 @@ class TrainingScreen extends StatelessWidget {
     final vol = weekVolume(app);
     final next = nextSlot(app);
     final active = app.activeSession;
+    // oggi giustificato per un dolore: seduta alternativa al posto di quella prevista
+    final off = slots.where((x) => x.status == SlotStatus.off && x.date == today() && x.day != null && x.off!.avoid.isNotEmpty).firstOrNull;
+    final alt = off == null || active != null ? null : alternativeFor(app, off.date, off.day!, off.off!.avoid);
 
     return PageBody(children: [
       Row(children: [
@@ -134,14 +140,30 @@ class TrainingScreen extends StatelessWidget {
       ),
       const SizedBox(height: 14),
       const VolumeCard(),
-      if (active == null && next?.day != null) CoachCard(day: next!.day!),
+      if (alt != null)
+        AlternativeCard(slot: off!, alt: alt)
+      else if (active == null && next?.day != null)
+        CoachCard(day: next!.day!),
       if (active != null)
         PrimaryButton('Riprendi ${active.name}', icon: Icons.play_arrow_rounded, onTap: () => push(context, SessionScreen(sessionId: active.id)))
-      else if (next?.day != null)
+      else if (alt != null)
+        PrimaryButton('Inizia la seduta alternativa · oggi', onTap: () => startSession(context, day: alt.day, offPlan: true))
+      else if (next?.day != null) ...[
         PrimaryButton(
           'Inizia ${next!.day!.name} · ${next.date == today() ? 'oggi' : giorni[next.date.weekday - 1].toLowerCase()}',
           onTap: () => startSession(context, day: next.day),
         ),
+        Center(
+          child: Tap(
+            radius: 8,
+            onTap: () => showDayOffSheet(context, next),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(10, 10, 10, 0),
+              child: Text('Non riesci a farla${next.date == today() ? ' oggi' : ''}?', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: t.accentInk)),
+            ),
+          ),
+        ),
+      ],
       const SizedBox(height: 10),
       Row(children: [
         Expanded(child: GhostButton('Modifica scheda', dense: true, onTap: () => push(context, PlanEditorScreen(planId: plan.id)))),
@@ -190,12 +212,19 @@ class _SlotRow extends StatelessWidget {
     final s = slot;
     final isToday = s.status == SlotStatus.today;
     final done = s.status == SlotStatus.done || s.status == SlotStatus.extra;
+    final off = s.status == SlotStatus.off;
     final name = s.session?.name ?? s.day?.name ?? 'Seduta saltata';
     final sub = s.session != null
         ? '${s.session!.doneSets}/${s.session!.plannedSets} serie · ${fInt(s.session!.volume)} kg'
-        : s.day != null
-            ? '${s.day!.items.take(4).map((i) => app.exerciseName(i.ex).split(' ').first).join(', ')} · ${s.day!.totalSets} serie'
-            : 'La seduta resta in coda per il prossimo giorno';
+        : off
+            ? [
+                (offReasons[s.off!.off] ?? 'Giustificato').split(' ').first,
+                if (s.off!.avoid.isNotEmpty) 'niente ${s.off!.avoid.map((z) => z.toLowerCase()).join(', ')}',
+                'non penalizza il voto',
+              ].join(' · ')
+            : s.day != null
+                ? '${s.day!.items.take(4).map((i) => app.exerciseName(i.ex).split(' ').first).join(', ')} · ${s.day!.totalSets} serie'
+                : 'La seduta resta in coda · tocca per giustificare';
     return TCard(
       borderColor: isToday ? TC.accent : null,
       padding: const EdgeInsets.all(14),
@@ -206,8 +235,10 @@ class _SlotRow extends StatelessWidget {
           } else {
             push(context, SessionSummaryScreen(sessionId: s.session!.id));
           }
+        } else if (off || s.status == SlotStatus.missed) {
+          showDayOffSheet(context, s);
         } else if (s.day != null) {
-          showDayPreview(context, s.day!);
+          showDayPreview(context, s.day!, slot: s);
         }
       },
       child: Row(children: [
@@ -221,7 +252,7 @@ class _SlotRow extends StatelessWidget {
         const SizedBox(width: 12),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(name, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: s.status == SlotStatus.missed ? t.dim : t.ink)),
+            Text(name, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: s.status == SlotStatus.missed || off ? t.dim : t.ink)),
             const SizedBox(height: 2),
             Text(sub, style: TS.muted(t, 12), maxLines: 1, overflow: TextOverflow.ellipsis),
           ]),
@@ -237,7 +268,8 @@ class _SlotRow extends StatelessWidget {
 }
 
 /// Anteprima di una seduta con i carichi suggeriti.
-Future<void> showDayPreview(BuildContext context, PlanDay day) {
+/// [slot]: la seduta in calendario, per poterla giustificare. [offPlan]: seduta fuori dal giro.
+Future<void> showDayPreview(BuildContext context, PlanDay day, {WeekSlot? slot, bool offPlan = false}) {
   return showModalBottomSheet(
     context: context,
     isScrollControlled: true,
@@ -267,10 +299,17 @@ Future<void> showDayPreview(BuildContext context, PlanDay day) {
             }),
           ],
           const SizedBox(height: 8),
-          PrimaryButton('Inizia ${day.name}', onTap: () {
+          PrimaryButton(offPlan ? 'Inizia la seduta alternativa' : 'Inizia ${day.name}', onTap: () {
             Navigator.pop(c);
-            startSession(context, day: day);
+            startSession(context, day: day, offPlan: offPlan);
           }),
+          if (slot != null) ...[
+            const SizedBox(height: 10),
+            GhostButton('Non riesco a farla', onTap: () {
+              Navigator.pop(c);
+              showDayOffSheet(context, slot);
+            }),
+          ],
         ]),
       );
     },

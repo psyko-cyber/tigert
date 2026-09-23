@@ -8,7 +8,9 @@ import '../data/app_state.dart';
 import '../data/catalog.dart';
 import '../data/models.dart';
 import '../logic/nutrition.dart';
+import '../services/drive_backup.dart';
 import '../services/services.dart';
+import 'settings/drive_settings.dart';
 import 'settings/sync_settings.dart';
 import 'shell.dart';
 import 'widgets.dart';
@@ -178,7 +180,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   const SizedBox(height: 10),
                   if (step == 0)
                     GhostButton(isMobile ? 'Ho già Tigert sul PC: collegati' : 'Ho già Tigert sul telefono',
-                        onTap: () => push(context, const SyncSettingsScreen(fromOnboarding: true)))
+                        onTap: () => push(context, const SyncSettingsScreen(fromOnboarding: true))),
+                  if (step == 0 && DriveBackup.available)
+                    Tap(
+                      radius: 8,
+                      onTap: () => push(context, const DriveSettingsScreen(fromOnboarding: true)),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(10, 12, 10, 2),
+                        child: Text('Ripristina da Google Drive', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: t.accentInk)),
+                      ),
+                    )
                   else
                     GhostButton('Indietro', onTap: () => setState(() {
                           step--;

@@ -8,7 +8,9 @@ import '../../data/app_state.dart';
 import '../../services/desktop.dart';
 import '../../services/files.dart';
 import '../../services/services.dart';
+import '../shell.dart';
 import '../widgets.dart';
+import 'drive_settings.dart';
 
 // =================================================================== abitudini
 
@@ -187,6 +189,12 @@ class _DataSettingsScreenState extends State<DataSettingsScreen> {
           }),
         ),
         const SectionLabel('Backup'),
+        _Action(
+          icon: Icons.cloud_outlined,
+          title: 'Backup su Google Drive',
+          sub: Services.drive.on ? 'Automatico · ${driveSummary().toLowerCase()}' : 'Una copia al giorno, in automatico',
+          onTap: () => push(context, const DriveSettingsScreen()),
+        ),
         _Action(
           icon: Icons.save_alt_rounded,
           title: 'Crea backup',

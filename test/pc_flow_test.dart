@@ -12,6 +12,7 @@ import 'package:tigert/data/catalog.dart';
 import 'package:tigert/data/local_prefs.dart';
 import 'package:tigert/data/models.dart';
 import 'package:tigert/data/store.dart';
+import 'package:tigert/services/drive_backup.dart';
 import 'package:tigert/services/notifications.dart';
 import 'package:tigert/services/resume_guard.dart';
 import 'package:tigert/services/services.dart';
@@ -46,6 +47,7 @@ void main() {
     Services.app = pc;
     Services.sync = SyncService(pc);
     Services.notif = NotificationService(pc);
+    Services.drive = DriveBackup(pc);
 
     // telefono: onboarding fatto + un pasto (sblocca il badge "Primo pasto")
     final plan = templateByKey('fb3').toPlan();

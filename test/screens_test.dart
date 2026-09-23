@@ -14,7 +14,9 @@ import 'package:tigert/data/catalog.dart';
 import 'package:tigert/data/local_prefs.dart';
 import 'package:tigert/data/models.dart';
 import 'package:tigert/data/store.dart';
+import 'package:tigert/logic/day_off.dart';
 import 'package:tigert/logic/training.dart';
+import 'package:tigert/services/drive_backup.dart';
 import 'package:tigert/services/gemini.dart';
 import 'package:tigert/services/notifications.dart';
 import 'package:tigert/services/services.dart';
@@ -22,6 +24,7 @@ import 'package:tigert/services/sync.dart';
 import 'package:tigert/ui/achievements_screen.dart';
 import 'package:tigert/ui/add_hub.dart';
 import 'package:tigert/ui/barcode.dart';
+import 'package:tigert/ui/day_off.dart';
 import 'package:tigert/ui/diary.dart';
 import 'package:tigert/ui/exercise_picker.dart';
 import 'package:tigert/ui/food_amount.dart';
@@ -40,6 +43,7 @@ import 'package:tigert/ui/reorder.dart';
 import 'package:tigert/ui/score_detail.dart';
 import 'package:tigert/ui/session.dart';
 import 'package:tigert/ui/session_summary.dart';
+import 'package:tigert/ui/settings/drive_settings.dart';
 import 'package:tigert/ui/settings/gemini_settings.dart';
 import 'package:tigert/ui/settings/misc_settings.dart';
 import 'package:tigert/ui/settings/profile_settings.dart';
@@ -84,6 +88,8 @@ Future<void> _seed() async {
   Services.app = app;
   Services.sync = SyncService(app);
   Services.notif = NotificationService(app);
+  Services.drive = DriveBackup(app);
+  DriveBackup.debugAvailable = true;
 
   final plan = templateByKey('ulpp').toPlan();
   final today = todayKey();
@@ -199,6 +205,14 @@ void main() {
     'Diario': () => DiaryScreen(date: todayKey()),
     'Diario vuoto': () => DiaryScreen(date: addDaysKey(todayKey(), 1)),
     'Allena': () => const TrainingScreen(),
+    'Giustifica': () => DayOffSheet(slot: WeekSlot(today(), app.activePlan!.days[1], SlotStatus.todo, null)),
+    'Alternativa': () {
+      final lower = app.activePlan!.days[1];
+      final off = HabitDay(date: todayKey()).withOff('dolore', dayId: lower.id, avoid: const ['Gambe']);
+      return PageBody(children: [
+        AlternativeCard(slot: WeekSlot(today(), lower, SlotStatus.off, null, off: off), alt: alternativeFor(app, today(), lower, const ['Gambe'])),
+      ]);
+    },
     'Storico sessioni': () => const SessionHistoryScreen(),
     'Editor scheda': () => PlanEditorScreen(planId: app.activePlan!.id),
     'Editor scheda ciclo': () => const PlanEditorScreen(planId: 'cyc'),
@@ -223,6 +237,17 @@ void main() {
     'Abitudini': () => const HabitsSettingsScreen(),
     'Windows': () => const DesktopSettingsScreen(),
     'Dati': () => const DataSettingsScreen(),
+    'Google Drive': () {
+      app.prefs.set('driveOn', null);
+      return const DriveSettingsScreen();
+    },
+    'Google Drive collegato': () {
+      app.prefs.set('driveOn', true);
+      app.prefs.set('driveEmail', 'luca@gmail.com');
+      app.prefs.set('driveLast', DateTime.now().millisecondsSinceEpoch);
+      app.prefs.set('driveLastSize', 1840000);
+      return const DriveSettingsScreen();
+    },
     'Informazioni': () => const AboutScreen(),
     'Importa da Hevy': () => const HevyImportScreen(),
   };

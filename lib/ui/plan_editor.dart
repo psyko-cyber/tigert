@@ -5,6 +5,7 @@ import '../core/ids.dart';
 import '../core/theme.dart';
 import '../data/app_state.dart';
 import '../data/models.dart';
+import '../logic/training.dart';
 import '../logic/volume.dart';
 import 'exercise_picker.dart';
 import 'plans.dart';
@@ -12,13 +13,6 @@ import 'reorder.dart';
 import 'shell.dart';
 import 'volume.dart';
 import 'widgets.dart';
-
-PlanItem defaultItemFor(Exercise? e, String id) => switch (e?.type) {
-      'k' => PlanItem(ex: id, sets: 1, rMin: 20, rMax: 30, rpe: 7, rest: 0),
-      'i' => PlanItem(ex: id, sets: 3, rMin: 10, rMax: 15, rpe: 9, rest: 90),
-      'b' => PlanItem(ex: id, sets: 3, rMin: 8, rMax: 15, rpe: 9, rest: 90),
-      _ => PlanItem(ex: id, sets: 3, rMin: 6, rMax: 10, rpe: 9, rest: 150),
-    };
 
 /// "1A + 3×8-10 rip · RPE 9 · 2'30" rec"
 String itemSummary(PlanItem it, String repsLabel) =>

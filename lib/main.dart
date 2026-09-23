@@ -10,6 +10,7 @@ import 'data/catalog.dart';
 import 'data/local_prefs.dart';
 import 'data/store.dart';
 import 'services/desktop.dart';
+import 'services/drive_backup.dart';
 import 'services/notifications.dart';
 import 'services/resume_guard.dart';
 import 'services/services.dart';
@@ -37,6 +38,8 @@ Future<void> main(List<String> args) async {
   Services.app = app;
   Services.sync = sync;
   Services.notif = notif;
+  final drive = DriveBackup(app);
+  Services.drive = drive;
 
   store.onLocalChange = () {
     sync.onLocalChange();
@@ -67,6 +70,7 @@ Future<void> main(List<String> args) async {
     unawaited(sync.syncNow(quiet: true));
   }
   notif.reschedule(delay: const Duration(seconds: 3));
+  if (DriveBackup.available) drive.startAuto();
 
   runApp(TigertApp(app: app));
 }

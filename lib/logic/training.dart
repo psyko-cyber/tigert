@@ -8,25 +8,29 @@ import 'progression.dart';
 
 // =================================================================== settimana
 
-enum SlotStatus { done, today, todo, missed, extra }
+enum SlotStatus { done, today, todo, missed, extra, off }
 
 class WeekSlot {
   final DateTime date;
   final PlanDay? day;
   final SlotStatus status;
   final Session? session;
-  const WeekSlot(this.date, this.day, this.status, this.session);
+  final HabitDay? off; // giorno giustificato
+  final PlanDay? queued; // per i giorni saltati: la seduta rimasta in coda
+  const WeekSlot(this.date, this.day, this.status, this.session, {this.off, this.queued});
 
   String get statusLabel => switch (status) {
         SlotStatus.done || SlotStatus.extra => 'Fatto',
         SlotStatus.today => session != null && session!.isActive ? 'In corso' : 'Oggi',
         SlotStatus.todo => 'Da fare',
         SlotStatus.missed => 'Saltato',
+        SlotStatus.off => 'Giustificato',
       };
 }
 
 /// Calendario della settimana: le sedute della scheda ruotano sui giorni
 /// scelti. Se salti un giorno, la seduta successiva resta quella in coda.
+/// Un giorno giustificato invece toglie dal giro la sua seduta, come se fosse fatta.
 List<WeekSlot> weekSchedule(AppState s, {DateTime? ref}) =>
     s.memo('week:${dayKey(mondayOf(ref ?? DateTime.now()))}', () => _weekSchedule(s, ref));
 
@@ -35,17 +39,29 @@ List<WeekSlot> _weekSchedule(AppState s, DateTime? ref) {
   final plan = s.activePlan;
   if (p == null || plan == null || plan.days.isEmpty) return const [];
   final mon = mondayOf(ref ?? DateTime.now());
+  final monKey = dayKey(mon);
   final t = today();
   final n = plan.days.length;
-  // si riparte dalla seduta successiva all'ultima fatta (anche se importata)
-  int after(Session x, int cur) {
-    final k = plan.days.indexWhere((d) => d.id == x.dayId);
+  int after(String? dayId, int cur) {
+    final k = plan.days.indexWhere((d) => d.id == dayId);
     return k >= 0 ? k + 1 : cur + 1;
   }
 
+  bool planSessionOn(String key) => (s.sessionsByDate[key] ?? const <Session>[]).any((x) => !x.isActive && x.planId == plan.id);
+
+  // si riparte dalla seduta successiva all'ultima fatta (anche se importata) o giustificata
+  final past = <(String, int, String?)>[
+    for (final x in s.doneSessions)
+      if (x.planId == plan.id && x.date.compareTo(monKey) < 0) (x.date, x.start, x.dayId),
+    for (final h in s.habitsByDate.values)
+      if (h.isOff && h.date.compareTo(monKey) < 0 && plan.day(h.offDay ?? '') != null && !planSessionOn(h.date)) (h.date, 0, h.offDay),
+  ]..sort((a, b) {
+      final c = a.$1.compareTo(b.$1);
+      return c != 0 ? c : a.$2.compareTo(b.$2);
+    });
   var idx = 0;
-  for (final x in s.doneSessions) {
-    if (x.planId == plan.id && fromKey(x.date).isBefore(mon)) idx = after(x, idx);
+  for (final e in past) {
+    idx = after(e.$3, idx);
   }
   final out = <WeekSlot>[];
   for (var i = 0; i < 7; i++) {
@@ -53,18 +69,28 @@ List<WeekSlot> _weekSchedule(AppState s, DateTime? ref) {
     final key = dayKey(d);
     final sessions = (s.sessionsByDate[key] ?? const <Session>[]).toList();
     final trainDay = p.trainingDays.contains(d.weekday);
+    final h = s.habitsByDate[key];
+    if (h != null && h.isOff && !planSessionOn(key)) {
+      final skipped = plan.day(h.offDay ?? '') ?? plan.days[idx % n];
+      idx = after(skipped.id, idx);
+      // se ti alleni lo stesso (seduta alternativa) si vede la seduta, non il giorno giustificato
+      if (sessions.isEmpty) {
+        out.add(WeekSlot(d, skipped, SlotStatus.off, null, off: h));
+        continue;
+      }
+    }
     if (sessions.isNotEmpty) {
       for (final ss in sessions) {
         final day = plan.day(ss.dayId ?? '') ?? (ss.planId == plan.id ? plan.days[idx % n] : null);
         final isToday = d == t;
         out.add(WeekSlot(d, day, ss.isActive ? SlotStatus.today : (trainDay || isToday ? SlotStatus.done : SlotStatus.extra), ss));
-        if (!ss.isActive && ss.planId == plan.id) idx = after(ss, idx);
+        if (!ss.isActive && ss.planId == plan.id) idx = after(ss.dayId, idx);
       }
       continue;
     }
     if (!trainDay) continue;
     if (d.isBefore(t)) {
-      out.add(WeekSlot(d, null, SlotStatus.missed, null));
+      out.add(WeekSlot(d, null, SlotStatus.missed, null, queued: plan.days[idx % n]));
     } else {
       out.add(WeekSlot(d, plan.days[idx % n], d == t ? SlotStatus.today : SlotStatus.todo, null));
       idx++;
@@ -128,7 +154,7 @@ WeekVolume weekVolume(AppState s) {
     if (sl.session != null) {
       done += sl.session!.doneSets;
       planned += sl.session!.plannedSets;
-    } else if (sl.day != null) {
+    } else if (sl.day != null && sl.status != SlotStatus.off) {
       planned += sl.day!.totalSets;
     }
   }
@@ -146,6 +172,14 @@ String _fmtPrev(SetLog s, Exercise? ex) {
 }
 
 String prevLabel(SetLog s, Exercise? ex) => _fmtPrev(s, ex);
+
+/// Serie, ripetizioni e recupero proposti quando aggiungi un esercizio.
+PlanItem defaultItemFor(Exercise? e, String id) => switch (e?.type) {
+      'k' => PlanItem(ex: id, sets: 1, rMin: 20, rMax: 30, rpe: 7, rest: 0),
+      'i' => PlanItem(ex: id, sets: 3, rMin: 10, rMax: 15, rpe: 9, rest: 90),
+      'b' => PlanItem(ex: id, sets: 3, rMin: 8, rMax: 15, rpe: 9, rest: 90),
+      _ => PlanItem(ex: id, sets: 3, rMin: 6, rMax: 10, rpe: 9, rest: 150),
+    };
 
 /// Crea una nuova sessione precompilata con i carichi suggeriti.
 Session buildSession(AppState s, {Plan? plan, PlanDay? day, String? name}) {

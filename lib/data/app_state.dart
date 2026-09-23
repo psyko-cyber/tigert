@@ -365,6 +365,13 @@ class AppState extends ChangeNotifier {
     saveHabit(h.copyWith(water: (h.water + ml).clamp(0, 10000)));
   }
 
+  /// Giorno giustificato: la seduta [dayId] esce dal giro e, se non ti alleni,
+  /// il giorno conta come riposo nel voto.
+  void setDayOff(String date, String reason, {String? dayId, List<String> avoid = const []}) =>
+      saveHabit(habit(date).withOff(reason, dayId: dayId, avoid: avoid));
+
+  void clearDayOff(String date) => saveHabit(habit(date).withOff(''));
+
   // ================================================================ esercizi
 
   Map<String, Exercise> get exercises => _memo('exercises', () {
