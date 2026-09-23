@@ -6,7 +6,6 @@ import 'dart:math' as math;
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 
@@ -21,10 +20,10 @@ import '../data/app_state.dart';
 ///   e le ultime [keep] di ogni dispositivo. Le foto si caricano una volta sola.
 /// - Il ripristino unisce il backup ai dati attuali (vince la modifica più
 ///   recente), come il ripristino da file.
-/// - Telefono: autorizzazione di Google Play Services (il client OAuth Android
-///   è legato al pacchetto e alla firma dell'APK).
-/// - PC: accesso nel browser con redirect su 127.0.0.1 e PKCE; il client
-///   "Desktop" arriva dalla build (--dart-define-from-file, fuori dal repo).
+/// - Solo sul PC: accesso nel browser con redirect su 127.0.0.1 e PKCE; il
+///   client "Desktop" arriva dalla build (--dart-define-from-file, fuori dal
+///   repo). Il telefono ha già tutto sul PC con la sincronizzazione Wi-Fi.
+///   La versione anche per il telefono (google_sign_in) è nel branch drive-telefono.
 class DriveBackup extends ChangeNotifier {
   final AppState app;
   final http.Client _http;
@@ -35,8 +34,8 @@ class DriveBackup extends ChangeNotifier {
   static const desktopSecret = String.fromEnvironment('GOOGLE_DESKTOP_SECRET');
   static const keep = 7;
 
-  /// Su PC serve il client OAuth incluso nella build.
-  static bool get available => debugAvailable ?? (isDesktop ? desktopId.isNotEmpty : Platform.isAndroid);
+  /// Solo su PC, con il client OAuth incluso nella build.
+  static bool get available => debugAvailable ?? (isDesktop && desktopId.isNotEmpty);
   @visibleForTesting
   static bool? debugAvailable;
 
@@ -58,17 +57,12 @@ class DriveBackup extends ChangeNotifier {
   // ---------------------------------------------------------------- accesso
   String? _access;
   int _accessExp = 0;
-  Future<void>? _gsiInit;
 
-  /// Collega l'account: si apre la scelta dell'account Google (telefono) o il browser (PC).
+  /// Collega l'account: si apre il browser per l'accesso a Google.
   Future<void> connect() async {
     await _run(() async {
       _access = null;
-      if (isDesktop) {
-        await _desktopLogin();
-      } else {
-        await _androidToken(interactive: true);
-      }
+      await _desktopLogin();
       final about = await _api((t) => _http.get(Uri.https('www.googleapis.com', '/drive/v3/about', {'fields': 'user(emailAddress)'}), headers: _h(t)));
       final mail = ((jsonDecode(about.body) as Map)['user'] as Map?)?['emailAddress'] as String?;
       app.prefs.set('driveEmail', mail);
@@ -82,9 +76,8 @@ class DriveBackup extends ChangeNotifier {
   /// Scollega l'account (i backup restano sul Drive, per un eventuale ripristino).
   Future<void> disconnect() async {
     try {
-      final token = isDesktop ? app.prefs.get<String>('driveRefresh') : _access;
+      final token = app.prefs.get<String>('driveRefresh');
       if (token != null) await _http.post(Uri.https('oauth2.googleapis.com', '/revoke', {'token': token})).timeout(const Duration(seconds: 15));
-      if (!isDesktop && _access != null) await GoogleSignIn.instance.authorizationClient.clearAuthorizationToken(accessToken: _access!);
     } catch (_) {}
     _access = null;
     for (final k in ['driveOn', 'driveEmail', 'driveRefresh', 'driveLast', 'driveLastSize', 'driveError']) {
@@ -95,23 +88,7 @@ class DriveBackup extends ChangeNotifier {
 
   Future<String> _token() async {
     if (_access != null && DateTime.now().millisecondsSinceEpoch < _accessExp - 60000) return _access!;
-    return isDesktop ? _desktopRefresh() : _androidToken(interactive: false);
-  }
-
-  Future<String> _androidToken({required bool interactive}) async {
-    _gsiInit ??= GoogleSignIn.instance.initialize();
-    await _gsiInit;
-    final c = GoogleSignIn.instance.authorizationClient;
-    try {
-      final a = interactive ? await c.authorizeScopes(const [scope]) : await c.authorizationForScopes(const [scope]);
-      if (a == null) throw const DriveAuthError();
-      _access = a.accessToken;
-      _accessExp = DateTime.now().millisecondsSinceEpoch + 30 * 60000;
-      return a.accessToken;
-    } on GoogleSignInException catch (e) {
-      if (e.code == GoogleSignInExceptionCode.canceled) throw const DriveError('Accesso annullato');
-      throw DriveError('Accesso a Google non riuscito: ${e.description ?? e.code.name}');
-    }
+    return _desktopRefresh();
   }
 
   Future<void> _desktopLogin() async {
@@ -205,7 +182,6 @@ class DriveBackup extends ChangeNotifier {
       final r = await call(t).timeout(const Duration(minutes: 3));
       if (r.statusCode == 401 && attempt == 0) {
         _access = null;
-        if (!isDesktop) await GoogleSignIn.instance.authorizationClient.clearAuthorizationToken(accessToken: t);
         continue;
       }
       if (r.statusCode == 401) throw const DriveAuthError();
@@ -360,7 +336,7 @@ class DriveBackup extends ChangeNotifier {
   Timer? _timer;
   AppLifecycleListener? _life;
 
-  /// Backup automatico: all'avvio, quando l'app torna in primo piano e ogni ora (il PC resta acceso nel tray).
+  /// Backup automatico: all'avvio, quando la finestra torna in primo piano e ogni ora (il PC resta acceso nel tray).
   void startAuto() {
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(hours: 1), (_) => maybeAuto());

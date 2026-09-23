@@ -6,6 +6,7 @@ import '../../core/ids.dart';
 import '../../core/theme.dart';
 import '../../data/app_state.dart';
 import '../../services/desktop.dart';
+import '../../services/drive_backup.dart';
 import '../../services/files.dart';
 import '../../services/services.dart';
 import '../shell.dart';
@@ -189,12 +190,13 @@ class _DataSettingsScreenState extends State<DataSettingsScreen> {
           }),
         ),
         const SectionLabel('Backup'),
-        _Action(
-          icon: Icons.cloud_outlined,
-          title: 'Backup su Google Drive',
-          sub: Services.drive.on ? 'Automatico · ${driveSummary().toLowerCase()}' : 'Una copia al giorno, in automatico',
-          onTap: () => push(context, const DriveSettingsScreen()),
-        ),
+        if (DriveBackup.available)
+          _Action(
+            icon: Icons.cloud_outlined,
+            title: 'Backup su Google Drive',
+            sub: Services.drive.on ? 'Automatico · ${driveSummary().toLowerCase()}' : 'Una copia al giorno, in automatico',
+            onTap: () => push(context, const DriveSettingsScreen()),
+          ),
         _Action(
           icon: Icons.save_alt_rounded,
           title: 'Crea backup',
