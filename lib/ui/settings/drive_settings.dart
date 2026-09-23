@@ -144,7 +144,7 @@ class _DriveSettingsScreenState extends State<DriveSettingsScreen> {
                   for (final line in [
                     'Una copia al giorno di tutti i dati, foto comprese, in automatico.',
                     'In una cartella nascosta del tuo Drive: Tigert non vede gli altri tuoi file.',
-                    'Se cambi PC, accedi con lo stesso account e ripristini tutto. Il telefono prende i dati dal PC con la sincronizzazione Wi-Fi.',
+                    'Se cambi telefono o PC, accedi con lo stesso account e ripristini tutto.',
                   ])
                     Padding(
                       padding: const EdgeInsets.only(bottom: 6),
@@ -163,7 +163,11 @@ class _DriveSettingsScreenState extends State<DriveSettingsScreen> {
                 busy: d.busy,
                 onTap: d.busy ? null : _connect,
               ),
-              const NoteBox(text: 'Si apre il browser: scegli il tuo account Google e premi Continua. Poi torna qui. Serve solo la prima volta.'),
+              NoteBox(
+                text: isDesktop
+                    ? 'Si apre il browser: scegli il tuo account Google e premi Continua. Poi torna qui.'
+                    : 'Scegli il tuo account Google e premi Continua. Serve solo la prima volta.',
+              ),
             ] else ...[
               TCard(
                 borderColor: d.error != null ? TC.danger.withValues(alpha: 0.6) : null,
@@ -194,8 +198,8 @@ class _DriveSettingsScreenState extends State<DriveSettingsScreen> {
               _Row(Icons.restore_rounded, 'Ripristina da Google Drive', 'Unisce un backup ai dati attuali', d.busy ? null : _restore),
               _Row(Icons.link_off_rounded, 'Scollega', 'I backup restano sul Drive', d.busy ? null : _disconnect, danger: true),
               NoteBox(
-                text: 'Il backup parte da solo una volta al giorno, quando Tigert è aperto (anche nel tray). '
-                    'Sul Drive restano gli ultimi ${DriveBackup.keep} giorni. Comprende anche i dati del telefono, se è sincronizzato con il PC.',
+                text: 'Il backup parte da solo quando Tigert è aperto${isDesktop ? ' (anche nel tray)' : ''}, una volta al giorno. '
+                    'Sul Drive restano gli ultimi ${DriveBackup.keep} giorni di ogni dispositivo.',
               ),
             ],
           ]),

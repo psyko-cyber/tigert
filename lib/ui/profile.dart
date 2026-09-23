@@ -8,7 +8,6 @@ import '../data/app_state.dart';
 import '../data/catalog.dart';
 import '../data/models.dart';
 import '../logic/nutrition.dart';
-import '../services/drive_backup.dart';
 import '../services/services.dart';
 import '../services/updates.dart';
 import 'charts.dart';
@@ -148,11 +147,10 @@ class ProfileScreen extends StatelessWidget {
           return _Setting(Icons.wifi_rounded, 'Sincronizzazione Wi-Fi', sub, () => push(context, const SyncSettingsScreen()));
         },
       ),
-      if (DriveBackup.available)
-        ListenableBuilder(
-          listenable: Services.drive,
-          builder: (context, _) => _Setting(Icons.cloud_outlined, 'Backup su Google Drive', driveSummary(), () => push(context, const DriveSettingsScreen())),
-        ),
+      ListenableBuilder(
+        listenable: Services.drive,
+        builder: (context, _) => _Setting(Icons.cloud_outlined, 'Backup su Google Drive', driveSummary(), () => push(context, const DriveSettingsScreen())),
+      ),
       _Setting(Icons.dark_mode_outlined, 'Tema', switch (app.prefs.themeMode) { ThemeMode.dark => 'Scuro', ThemeMode.light => 'Chiaro', _ => 'Come il sistema' },
           () => showThemeSheet(context)),
       if (isDesktop) _Setting(Icons.desktop_windows_outlined, 'Windows', 'Avvio automatico e area di notifica', () => push(context, const DesktopSettingsScreen())),

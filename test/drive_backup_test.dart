@@ -36,12 +36,12 @@ class FakeDrive {
     if (req.headers['Authorization'] != 'Bearer at') return http.Response('{}', 401);
     if (u.host == 'upload.test') {
       final id = 'f${_n++}';
-      files[id] = (_pending.remove(u.path)!, req.bodyBytes, DateTime.now());
+      files[id] = (_pending.remove(u.path)!, (req as http.Request).bodyBytes, DateTime.now());
       uploads++;
       return http.Response(jsonEncode({'id': id}), 200);
     }
     if (u.path == '/upload/drive/v3/files') {
-      final meta = jsonDecode(req.body) as Map;
+      final meta = jsonDecode((req as http.Request).body) as Map;
       expect(meta['parents'], ['appDataFolder']);
       final path = '/s${_n++}';
       _pending[path] = meta['name'] as String;
@@ -149,7 +149,7 @@ void main() {
     await d.backupNow();
     expect(drive.uploads, 3);
 
-    // PC nuovo: niente backup automatico finché è vuoto, poi ripristino
+    // telefono nuovo: niente backup automatico finché è vuoto, poi ripristino
     final b = await newApp();
     b.prefs.set('driveOn', true);
     b.prefs.set('driveRefresh', 'rt');
