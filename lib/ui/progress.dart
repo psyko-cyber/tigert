@@ -13,6 +13,7 @@ import '../services/files.dart';
 import 'achievements_screen.dart';
 import 'charts.dart';
 import 'shell.dart';
+import 'week_report.dart';
 import 'widgets.dart';
 
 class ProgressScreen extends StatefulWidget {
@@ -150,6 +151,8 @@ class _ProgressScreenState extends State<ProgressScreen> {
           ],
         ]),
       ),
+      const SizedBox(height: 12),
+      const WeekReportCard(),
       SectionLabel('Record per esercizio'),
       if (bests.isEmpty) Text('Completa qualche sessione: qui vedrai i tuoi massimali stimati e come crescono.', style: TS.muted(t)),
       for (final b in bests.take(12))

@@ -10,6 +10,7 @@ import '../data/models.dart';
 import '../logic/achievements.dart';
 import '../logic/nutrition.dart';
 import '../logic/progression.dart';
+import '../logic/score.dart';
 import '../logic/supplements.dart';
 import '../logic/training.dart';
 import '../services/updates.dart';
@@ -18,6 +19,7 @@ import 'diary.dart';
 import 'score_detail.dart';
 import 'session.dart';
 import 'shell.dart';
+import 'week_report.dart';
 import 'widgets.dart';
 
 class TodayScreen extends StatelessWidget {
@@ -32,6 +34,8 @@ class TodayScreen extends StatelessWidget {
     final score = app.score(k);
     final tot = app.totals(k);
     final left = p.kcal - tot.kcal;
+    final phase = p.phaseOn(k);
+    final over = kcalOver(tot.kcal, p.kcal, phase);
     final hour = DateTime.now().hour;
     final greet = hour < 12 ? 'Buongiorno' : (hour < 18 ? 'Ciao' : 'Buonasera');
     final update = UpdateInfo.fromMap(app.prefs.availableUpdate);
@@ -80,6 +84,7 @@ class TodayScreen extends StatelessWidget {
             ]),
           ]),
         ),
+      if (showReportToday(app)) const WeekReportCard(tip: true),
       const SizedBox(height: 16),
       // ------------------------------------------------------------ voto
       TCard(
@@ -116,13 +121,20 @@ class TodayScreen extends StatelessWidget {
         onTap: () => push(context, DiaryScreen(date: k)),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            Expanded(child: Text(left >= 0 ? 'Calorie rimaste' : 'Sopra il target', style: TS.muted(t))),
+            Expanded(
+              child: Text(
+                left >= 0 ? 'Calorie rimaste' : (over || phase == Phase.maintain ? 'Sopra il target' : 'Sopra il target · ok in ${phase.label.toLowerCase()}'),
+                style: TS.muted(t),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
             Text('${fInt(tot.kcal)} / ${fInt(p.kcal)} kcal', style: TextStyle(fontSize: 13, color: t.dim, fontFeatures: tabular)),
           ]),
           const SizedBox(height: 2),
-          Text(fInt(left.abs()), style: TS.num(t, 48, color: left < -p.kcal * 0.1 ? TC.danger : null)),
+          Text(fInt(left.abs()), style: TS.num(t, 48, color: over ? TC.danger : null)),
           const SizedBox(height: 10),
-          BarTrack(pct: tot.kcal / math.max(1, p.kcal), color: tot.kcal > p.kcal * 1.1 ? TC.danger : TC.accent),
+          BarTrack(pct: tot.kcal / math.max(1, p.kcal), color: over ? TC.danger : TC.accent),
           const SizedBox(height: 16),
           Row(children: [
             Expanded(child: _Macro('PROTEINE', tot.p, p.protein, TC.prot)),

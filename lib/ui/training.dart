@@ -17,6 +17,7 @@ import 'session.dart';
 import 'session_summary.dart';
 import 'shell.dart';
 import 'volume.dart';
+import 'week_report.dart';
 import 'widgets.dart';
 
 /// Avvia (o riprende) una sessione per un giorno della scheda.
@@ -149,6 +150,7 @@ class TrainingScreen extends StatelessWidget {
       ),
       const SizedBox(height: 14),
       const VolumeCard(),
+      const WeekReportCard(),
       if (alt != null)
         AlternativeCard(slot: off!, alt: alt)
       else if (active == null && next?.day != null)

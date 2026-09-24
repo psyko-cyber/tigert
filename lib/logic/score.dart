@@ -73,11 +73,16 @@ class DayScore {
   }
 }
 
-/// Punteggio calorie: pieno entro ±10%, poi scende linearmente fino a 0 al ±30%.
-double kcalScoreFor(double kcal, int target) {
+/// Punteggio calorie: pieno vicino al target, poi scende linearmente fino a 0.
+/// Quanto puoi scostarti dipende dalla fase: in mantenimento ±10% (0 al ±30%),
+/// in bulk pesante fino a +30% sopra (0 al +70%), in definizione fino a −15% sotto.
+double kcalScoreFor(double kcal, int target, [Phase phase = Phase.maintain]) {
   if (kcal <= 0 || target <= 0) return 0;
+  final x = phase.tol;
+  final over = kcal >= target;
   final dev = (kcal - target).abs() / target;
-  return dev <= 0.10 ? 1 : math.max(0, 1 - (dev - 0.10) / 0.20);
+  final full = over ? x.overFull : x.underFull, zero = over ? x.overZero : x.underZero;
+  return dev <= full ? 1 : math.max(0, 1 - (dev - full) / (zero - full));
 }
 
 double alcoholScore(int? drinks) => switch (drinks) {
@@ -100,7 +105,8 @@ DayScore computeScore(AppState s, String date) {
   final isToday = date == todayKey();
 
   // ---------------------------------------------------------- nutrizione
-  final kS = kcalScoreFor(t.kcal, p.kcal);
+  final phase = p.phaseOn(date);
+  final kS = kcalScoreFor(t.kcal, p.kcal, phase);
   final pS = t.p <= 0 ? 0.0 : math.min(1.0, t.p / math.max(1, p.protein));
   final nutri = 0.6 * kS + 0.4 * pS;
 
@@ -174,6 +180,7 @@ DayScore computeScore(AppState s, String date) {
   final parts = <ScorePart>[
     ScorePart('Nutrizione', kMax * kS + pMax * pS, kMax + pMax, [
       ScoreRow('Calorie ${fInt(t.kcal)} / ${fInt(p.kcal)}$devTxt', '${fDec(kMax * kS)} / ${fDec(kMax)}', kS > 0.8 ? Tone.good : (kS > 0.3 ? Tone.warn : Tone.bad)),
+      if (phase != Phase.maintain) ScoreRow('Fase: ${phase.label.toLowerCase()}', _tolShort(phase), Tone.dim),
       ScoreRow('Proteine ${fInt(t.p)} / ${p.protein} g', '${fDec(pMax * pS)} / ${fDec(pMax)}', pS > 0.9 ? Tone.good : (pS > 0.5 ? Tone.warn : Tone.bad)),
     ]),
     if (rest)
@@ -199,7 +206,7 @@ DayScore computeScore(AppState s, String date) {
   // ---------------------------------------------------------- suggerimenti
   final tips = <Tip>[];
   final remaining = p.kcal - t.kcal;
-  if (kS < 1 && remaining > p.kcal * 0.10) {
+  if (kS < 1 && remaining > p.kcal * phase.tol.underFull) {
     final gain = kMax * (1 - kS);
     tips.add(Tip(gain, isToday || d.isAfter(today()) ? 'Mangia ancora circa ${fInt(round50(remaining))} kcal.' : 'Mancavano ${fInt(remaining)} kcal.'));
   }
@@ -241,3 +248,11 @@ DayScore computeScore(AppState s, String date) {
 }
 
 double round50(double v) => (v / 50).round() * 50;
+
+String _tolShort(Phase ph) {
+  final x = ph.tol;
+  return '−${(x.underFull * 100).round()}% / +${(x.overFull * 100).round()}%';
+}
+
+/// Le calorie sono fuori dalla zona a voto pieno della fase?
+bool kcalOver(double kcal, int target, Phase phase) => target > 0 && kcal > target * (1 + phase.tol.overFull);

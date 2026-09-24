@@ -13,6 +13,7 @@ import '../data/models.dart';
 import '../logic/score.dart';
 import '../logic/supplements.dart';
 import '../logic/training.dart';
+import '../logic/week_report.dart';
 
 class _Planned {
   final int id;
@@ -157,6 +158,9 @@ class NotificationService {
       if (r.eveningOn) {
         out.add(_Planned(500 + d, at(r.eveningTime), 'Chiudi la giornata', 'Controlla il voto e cosa manca per salire.'));
       }
+      if (r.reportOn && day.weekday == reportWeekday) {
+        out.add(_Planned(700 + d, at(r.reportTime), 'Report della settimana', reportNotificationBody(app, day)));
+      }
       final supps = pendingSupplements(p, isToday ? app.habit(key) : HabitDay(date: key));
       if (r.suppOn && supps.isNotEmpty) {
         out.add(_Planned(600 + d, at(r.suppTime), 'Integratori', _suppBody(supps)));
@@ -244,6 +248,9 @@ class NotificationService {
     if (r.suppOn) {
       final supps = pendingSupplements(p, app.habit(k));
       if (supps.isNotEmpty) check('supp', r.suppTime, 'Integratori', _suppBody(supps), () => pendingSupplements(p, app.habit(k)).isNotEmpty);
+    }
+    if (r.reportOn && now.weekday == reportWeekday) {
+      check('report', r.reportTime, 'Report della settimana', reportNotificationBody(app, now), () => true);
     }
     if (r.eveningOn) {
       check('evening', r.eveningTime, 'Chiudi la giornata', 'Voto attuale ${fDec(app.score(k).v)}: guarda cosa manca per salire.', () => true);

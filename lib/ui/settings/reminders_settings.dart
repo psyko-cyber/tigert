@@ -131,6 +131,17 @@ class RemindersScreen extends StatelessWidget {
           onToggle: (v) => _save(context, r.copyWith(coachOn: v)),
         ),
         _ReminderRow(
+          title: 'Report settimanale',
+          subtitle: 'Il sabato: quanto hai allenato ogni muscolo e la seduta a casa per recuperare',
+          time: r.reportTime,
+          on: r.reportOn,
+          onToggle: (v) => _save(context, r.copyWith(reportOn: v)),
+          onTime: () async {
+            final v = await _time(context, r.reportTime);
+            if (v != null && context.mounted) _save(context, r.copyWith(reportTime: v));
+          },
+        ),
+        _ReminderRow(
           title: 'Pesata',
           subtitle: 'Al mattino, a digiuno',
           time: r.weightTime,

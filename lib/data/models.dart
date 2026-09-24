@@ -27,6 +27,68 @@ extension GoalX on Goal {
 
 Goal goalFrom(String? s) => Goal.values.firstWhere((g) => g.name == s, orElse: () => Goal.maintain);
 
+/// Fase per il voto delle calorie: quanto puoi scostarti dal target senza perdere punti.
+/// Non cambia il target, solo la tolleranza.
+enum Phase { maintain, lean, heavy, cut }
+
+extension PhaseX on Phase {
+  String get label => switch (this) {
+        Phase.maintain => 'Mantenimento',
+        Phase.lean => 'Massa pulita',
+        Phase.heavy => 'Bulk pesante',
+        Phase.cut => 'Definizione',
+      };
+
+  /// Scostamenti dal target (frazioni): voto pieno fino a [underFull]/[overFull],
+  /// poi scende fino a 0 a [underZero]/[overZero].
+  ({double underFull, double underZero, double overFull, double overZero}) get tol => switch (this) {
+        Phase.maintain => (underFull: 0.10, underZero: 0.30, overFull: 0.10, overZero: 0.30),
+        Phase.lean => (underFull: 0.10, underZero: 0.30, overFull: 0.15, overZero: 0.40),
+        Phase.heavy => (underFull: 0.10, underZero: 0.30, overFull: 0.30, overZero: 0.70),
+        Phase.cut => (underFull: 0.15, underZero: 0.40, overFull: 0.10, overZero: 0.30),
+      };
+
+  String get tolText {
+    final x = tol;
+    String pc(double v) => '${(v * 100).round()}%';
+    return x.underFull == x.overFull ? 'voto calorie pieno entro ±${pc(x.overFull)} dal target' : 'voto calorie pieno da −${pc(x.underFull)} a +${pc(x.overFull)} del target';
+  }
+}
+
+Phase phaseFrom(String? s) => Phase.values.firstWhere((g) => g.name == s, orElse: () => Phase.maintain);
+
+class PhaseChange {
+  final String date;
+  final Phase from, to;
+  const PhaseChange(this.date, this.from, this.to);
+  Map<String, dynamic> toMap() => {'date': date, 'from': from.name, 'to': to.name};
+  factory PhaseChange.fromMap(Map m) => PhaseChange(_s(m['date']), phaseFrom(m['from'] as String?), phaseFrom(m['to'] as String?));
+}
+
+/// Attrezzi che hai a casa, per la seduta extra del report settimanale.
+class HomeGym {
+  final bool bar; // sbarra per trazioni
+  final bool dip; // parallele
+  final bool bench; // panca piana
+  final bool incline; // panca inclinabile
+  final double dbKg; // peso massimo di un manubrio, 0 = niente manubri
+  const HomeGym({this.bar = false, this.dip = false, this.bench = false, this.incline = false, this.dbKg = 0});
+  Map<String, dynamic> toMap() => {'bar': bar, 'dip': dip, 'bench': bench, 'incline': incline, 'dbKg': dbKg};
+  factory HomeGym.fromMap(Map m) => HomeGym(bar: m['bar'] == true, dip: m['dip'] == true, bench: m['bench'] == true, incline: m['incline'] == true, dbKg: _d(m['dbKg']));
+  HomeGym copyWith({bool? bar, bool? dip, bool? bench, bool? incline, double? dbKg}) =>
+      HomeGym(bar: bar ?? this.bar, dip: dip ?? this.dip, bench: bench ?? this.bench, incline: incline ?? this.incline, dbKg: dbKg ?? this.dbKg);
+  bool has(String k) => switch (k) { 'bar' => bar, 'dip' => dip, 'bench' => bench || incline, 'incline' => incline, 'db' => dbKg > 0, _ => false };
+  String get summary {
+    final l = [
+      if (bar) 'sbarra',
+      if (dip) 'parallele',
+      if (incline) 'panca inclinabile' else if (bench) 'panca',
+      if (dbKg > 0) 'manubri fino a ${fDec(dbKg, 1, true)} kg',
+    ];
+    return l.isEmpty ? 'Solo corpo libero' : l.join(' · ');
+  }
+}
+
 const activityLevels = <String, (String, double)>{
   'sedentario': ('Sedentario', 1.2),
   'leggero': ('Leggero', 1.375),
@@ -70,6 +132,8 @@ class Reminders {
   final bool coachOn; // consigli di carico nel promemoria di allenamento
   final bool suppOn; // integratori non ancora spuntati
   final String suppTime;
+  final bool reportOn; // report settimanale dei muscoli, il sabato
+  final String reportTime;
 
   const Reminders({
     required this.meals,
@@ -86,6 +150,8 @@ class Reminders {
     this.coachOn = true,
     this.suppOn = true,
     this.suppTime = '20:00',
+    this.reportOn = true,
+    this.reportTime = '09:00',
   });
 
   static Reminders defaults() => const Reminders(meals: [
@@ -109,6 +175,8 @@ class Reminders {
         'coachOn': coachOn,
         'suppOn': suppOn,
         'suppTime': suppTime,
+        'reportOn': reportOn,
+        'reportTime': reportTime,
       };
 
   factory Reminders.fromMap(Map? m) {
@@ -128,6 +196,8 @@ class Reminders {
       coachOn: m['coachOn'] != false,
       suppOn: m['suppOn'] != false,
       suppTime: _s(m['suppTime'], '20:00'),
+      reportOn: m['reportOn'] != false,
+      reportTime: _s(m['reportTime'], '09:00'),
     );
   }
 
@@ -146,6 +216,8 @@ class Reminders {
     bool? coachOn,
     bool? suppOn,
     String? suppTime,
+    bool? reportOn,
+    String? reportTime,
   }) =>
       Reminders(
         meals: meals ?? this.meals,
@@ -162,6 +234,8 @@ class Reminders {
         coachOn: coachOn ?? this.coachOn,
         suppOn: suppOn ?? this.suppOn,
         suppTime: suppTime ?? this.suppTime,
+        reportOn: reportOn ?? this.reportOn,
+        reportTime: reportTime ?? this.reportTime,
       );
 }
 
@@ -184,6 +258,8 @@ class Profile {
   final Goal goal;
   final double targetWeight;
   final double rate; // kg/settimana (valore assoluto)
+  final bool heavy; // in massa: bulk pesante (più tolleranza sopra il target)
+  final List<PhaseChange> phases; // cambi di fase: i giorni passati tengono la loro
   final String activity;
   final int kcal, protein, carbs, fat;
   final int kcalStart;
@@ -196,6 +272,7 @@ class Profile {
   final List<int> trainingDays; // 1 = lunedì
   final String? planId;
   final Reminders reminders;
+  final HomeGym? home; // null = non ancora indicata
 
   const Profile({
     required this.name,
@@ -207,6 +284,8 @@ class Profile {
     required this.goal,
     required this.targetWeight,
     required this.rate,
+    this.heavy = false,
+    this.phases = const [],
     required this.activity,
     required this.kcal,
     required this.protein,
@@ -224,10 +303,34 @@ class Profile {
     required this.trainingDays,
     this.planId,
     required this.reminders,
+    this.home,
   });
 
   int get age => DateTime.now().year - birthYear;
   bool habitOn(String k) => habits[k] ?? true;
+
+  Phase get phase => switch (goal) { Goal.bulk => heavy ? Phase.heavy : Phase.lean, Goal.cut => Phase.cut, Goal.maintain => Phase.maintain };
+
+  /// La fase in vigore in quel giorno.
+  Phase phaseOn(String date) {
+    if (phases.isEmpty) return phase;
+    if (date.compareTo(phases.first.date) < 0) return phases.first.from;
+    var out = phases.first.to;
+    for (final c in phases) {
+      if (c.date.compareTo(date) <= 0) out = c.to;
+    }
+    return out;
+  }
+
+  /// [phases] con il cambio di oggi se la fase di [next] è diversa da questa.
+  List<PhaseChange> phasesFor(Profile next, String date) {
+    final from = phaseOn(date), to = next.phase;
+    final kept = [for (final c in phases) if (c.date != date) c];
+    // stesso giorno: resta la fase che c'era prima di oggi
+    final start = phases.where((c) => c.date == date).firstOrNull?.from ?? from;
+    if (start == to) return kept;
+    return [...kept, PhaseChange(date, start, to)];
+  }
 
   Map<String, dynamic> toMap() => {
         'name': name,
@@ -239,6 +342,8 @@ class Profile {
         'goal': goal.key,
         'targetWeight': targetWeight,
         'rate': rate,
+        'heavy': heavy,
+        'phases': phases.map((e) => e.toMap()).toList(),
         'activity': activity,
         'kcal': kcal,
         'protein': protein,
@@ -256,6 +361,7 @@ class Profile {
         'trainingDays': trainingDays,
         'planId': planId,
         'reminders': reminders.toMap(),
+        if (home != null) 'home': home!.toMap(),
       };
 
   factory Profile.fromMap(Map m) => Profile(
@@ -268,6 +374,8 @@ class Profile {
         goal: goalFrom(m['goal'] as String?),
         targetWeight: _d(m['targetWeight'], 70),
         rate: _d(m['rate'], 0.25),
+        heavy: m['heavy'] == true,
+        phases: ((m['phases'] as List?) ?? const []).map((e) => PhaseChange.fromMap(e as Map)).toList(),
         activity: _s(m['activity'], 'moderato'),
         kcal: _i(m['kcal'], 2200),
         protein: _i(m['protein'], 120),
@@ -286,6 +394,7 @@ class Profile {
         trainingDays: ((m['trainingDays'] as List?) ?? const [1, 3, 5]).map((e) => _i(e)).toList()..sort(),
         planId: m['planId'] as String?,
         reminders: Reminders.fromMap(m['reminders'] as Map?),
+        home: m['home'] is Map ? HomeGym.fromMap(m['home'] as Map) : null,
       );
 
   Profile copyWith({
@@ -298,6 +407,8 @@ class Profile {
     Goal? goal,
     double? targetWeight,
     double? rate,
+    bool? heavy,
+    List<PhaseChange>? phases,
     String? activity,
     int? kcal,
     int? protein,
@@ -315,6 +426,7 @@ class Profile {
     List<int>? trainingDays,
     String? planId,
     Reminders? reminders,
+    HomeGym? home,
   }) =>
       Profile(
         name: name ?? this.name,
@@ -326,6 +438,8 @@ class Profile {
         goal: goal ?? this.goal,
         targetWeight: targetWeight ?? this.targetWeight,
         rate: rate ?? this.rate,
+        heavy: heavy ?? this.heavy,
+        phases: phases ?? this.phases,
         activity: activity ?? this.activity,
         kcal: kcal ?? this.kcal,
         protein: protein ?? this.protein,
@@ -343,6 +457,7 @@ class Profile {
         trainingDays: trainingDays ?? this.trainingDays,
         planId: planId ?? this.planId,
         reminders: reminders ?? this.reminders,
+        home: home ?? this.home,
       );
 }
 

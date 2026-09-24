@@ -24,6 +24,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   late final targetCtl = TextEditingController(text: fDec(p0.targetWeight, 1, true));
   late String sex = p0.sex;
   late Goal goal = p0.goal;
+  late bool heavy = p0.heavy;
   late double rate = p0.rate <= 0 ? (p0.goal == Goal.cut ? 0.5 : 0.25) : p0.rate;
   late String activity = p0.activity;
   String? error;
@@ -75,10 +76,12 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
       goal: goal,
       targetWeight: tg,
       rate: r,
+      heavy: goal == Goal.bulk && heavy,
       activity: activity,
       startWeight: newPath ? w : null,
       startDate: newPath ? todayKey() : null,
     );
+    p = p.copyWith(phases: p0.phasesFor(p, todayKey()));
     final t = computeTargets(sex: sex, age: age, heightCm: h!, weight: w, activity: activity, goal: goal, rate: r);
     final changed = (t.kcal - p0.kcal).abs() >= 30 || newPath;
     if (changed) {
@@ -165,6 +168,25 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
             ],
           ]),
         ],
+        if (goal == Goal.bulk) ...[
+          const SizedBox(height: 14),
+          const Label('Fase'),
+          const SizedBox(height: 8),
+          Row(children: [
+            Expanded(child: _choice(Phase.lean.label, !heavy, () => setState(() => heavy = false))),
+            const SizedBox(width: 8),
+            Expanded(child: _choice(Phase.heavy.label, heavy, () => setState(() => heavy = true))),
+          ]),
+        ],
+        Builder(builder: (context) {
+          final ph = goal == Goal.bulk ? (heavy ? Phase.heavy : Phase.lean) : (goal == Goal.cut ? Phase.cut : Phase.maintain);
+          return NoteBox(
+            icon: Icons.tune_rounded,
+            text: '${ph.label}: ${ph.tolText}, poi il voto scende piano. '
+                '${ph == Phase.heavy ? 'Andare sotto il target resta penalizzato: in bulk è quello il problema. ' : ''}'
+                'Il target non cambia; la fase vale da oggi, i giorni passati tengono la loro.',
+          );
+        }),
         const SectionLabel('Livello di attività'),
         for (final e in activityLevels.entries)
           Padding(

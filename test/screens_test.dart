@@ -45,6 +45,7 @@ import 'package:tigert/ui/session.dart';
 import 'package:tigert/ui/session_summary.dart';
 import 'package:tigert/ui/settings/drive_settings.dart';
 import 'package:tigert/ui/settings/gemini_settings.dart';
+import 'package:tigert/ui/settings/home_gym_settings.dart';
 import 'package:tigert/ui/settings/misc_settings.dart';
 import 'package:tigert/ui/settings/profile_settings.dart';
 import 'package:tigert/ui/settings/reminders_settings.dart';
@@ -52,6 +53,7 @@ import 'package:tigert/ui/settings/sync_settings.dart';
 import 'package:tigert/ui/today.dart';
 import 'package:tigert/ui/training.dart';
 import 'package:tigert/ui/volume.dart';
+import 'package:tigert/ui/week_report.dart';
 import 'package:tigert/ui/widgets.dart';
 
 late AppState app;
@@ -118,6 +120,7 @@ Future<void> _seed() async {
     trainingDays: const [1, 2, 4, 5],
     planId: plan.id,
     reminders: Reminders.defaults(),
+    home: const HomeGym(bar: true, dip: true, bench: true, dbKg: 10),
   ));
   chicken = catalog.foods.firstWhere((f) => fold(f.name).contains('petto di pollo'));
   final pasta = catalog.foods.firstWhere((f) => fold(f.name).startsWith('pasta'));
@@ -223,6 +226,10 @@ void main() {
     'Editor scheda ciclo': () => const PlanEditorScreen(planId: 'cyc'),
     'Le mie schede': () => const PlansScreen(),
     'Volume': () => const VolumeScreen(),
+    'Report settimanale': () => const WeekReportScreen(),
+    'Report settimana scorsa': () => WeekReportScreen(monday: today().subtract(const Duration(days: 7))),
+    'Card report': () => const PageBody(children: [WeekReportCard(), WeekReportCard(tip: true)]),
+    'Attrezzatura a casa': () => const HomeGymScreen(),
     'Riordina': () => ReorderScreen(entries: [for (final e in app.session(activeSessionId)!.items) ReorderEntry(e.ex, e.name, '${e.plannedSets} serie')]),
     'Quantità bevanda': () => FoodAmountScreen(food: app.catalog.foods.firstWhere((f) => fold(f.name).startsWith('spremuta')), date: todayKey(), meal: 'colazione'),
     'Esercizi': () => const ExercisePickerScreen(),

@@ -507,6 +507,7 @@ const _rules = <_Rule>[
   _Rule('rematore-manubrio', ['row', 'dumbbell'], ['upright']),
   _Rule('rematore-bilanciere', ['bent over row|barbell row|pendlay row|pendlay|yates row']),
   _Rule('rematore-bilanciere', ['row', 'barbell'], ['upright']),
+  _Rule('stacco-rumeno-monolaterale', ['romanian deadlift|rdl', 'single leg|single-leg|one leg']),
   _Rule('stacco-rumeno-manubri', ['romanian deadlift|rdl', 'dumbbell']),
   _Rule('stacco-rumeno', ['romanian deadlift|rdl']),
   _Rule('stacco-gambe-tese', ['straight leg deadlift|stiff leg deadlift|stiff legged']),

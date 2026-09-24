@@ -15,6 +15,7 @@ import 'charts.dart';
 import 'hevy_import.dart';
 import 'plans.dart';
 import 'settings/drive_settings.dart';
+import 'settings/home_gym_settings.dart';
 import 'settings/gemini_settings.dart';
 import 'settings/misc_settings.dart';
 import 'settings/profile_settings.dart';
@@ -59,7 +60,7 @@ class ProfileScreen extends StatelessWidget {
           row('Età', '${p.age} anni'),
           row('Altezza', '${fDec(p.heightCm, 0)} cm'),
           row('Peso (media 7 gg)', '${fDec(app.currentWeight, 1)} kg'),
-          row('Obiettivo', p.goal == Goal.maintain ? 'Mantenimento' : '${p.goal.label} · ${fKg(p.targetWeight)} kg'),
+          row('Obiettivo', p.goal == Goal.maintain ? 'Mantenimento' : '${p.phase.label} · ${fKg(p.targetWeight)} kg'),
           row('Attività', activityLevels[p.activity]?.$1 ?? p.activity),
         ]),
       ),
@@ -135,6 +136,8 @@ class ProfileScreen extends StatelessWidget {
       _Setting(Icons.fitness_center_rounded, 'Le mie schede', plan == null ? 'Nessuna' : '${plan.name} attiva · ${app.plans.length} in tutto',
           () => plan == null ? chooseTemplate(context) : push(context, const PlansScreen())),
       _Setting(Icons.move_to_inbox_rounded, 'Importa da Hevy', 'Storico, schede ed esercizi', () => push(context, const HevyImportScreen())),
+      _Setting(Icons.home_outlined, 'Attrezzatura a casa', p.home?.summary ?? 'Non indicata · serve alla seduta extra del sabato',
+          () => push(context, const HomeGymScreen())),
       _Setting(Icons.notifications_none_rounded, 'Promemoria', _remindersSummary(p.reminders), () => push(context, const RemindersScreen())),
       _Setting(Icons.checklist_rounded, 'Abitudini nel voto', '${p.habits.entries.where((e) => e.value && e.key != 'supp').length} attive', () => push(context, const HabitsSettingsScreen())),
       _Setting(Icons.auto_awesome_rounded, 'Foto con Gemini', app.prefs.geminiKey.isEmpty ? 'Copia-incolla' : 'Chiave API attiva', () => push(context, const GeminiSettingsScreen())),
@@ -179,7 +182,7 @@ class ProfileScreen extends StatelessWidget {
 
   String _remindersSummary(Reminders r) {
     final n = r.meals.where((m) => m.on).length;
-    final parts = [if (n > 0) 'Pasti', if (r.waterOn) 'acqua', if (r.trainingOn) 'allenamento', if (r.weightOn) 'peso'];
+    final parts = [if (n > 0) 'Pasti', if (r.waterOn) 'acqua', if (r.trainingOn) 'allenamento', if (r.weightOn) 'peso', if (r.reportOn) 'report'];
     return parts.isEmpty ? 'Spenti' : parts.join(' + ');
   }
 }
