@@ -96,6 +96,19 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() async => catalog = await Catalog.load());
 
+  test('catalogo: id unici, gruppi e attrezzi noti, calisthenics presente', () {
+    final all = catalog.exercises;
+    expect(all.length, greaterThanOrEqualTo(258));
+    expect(all.map((e) => e.id).toSet().length, all.length);
+    const kit = {'Bilanciere', 'Manubri', 'Macchina', 'Cavi', 'Multipower', 'Corpo libero', 'Kettlebell', 'Anelli', 'Elastici', 'Altro'};
+    for (final e in all) {
+      expect(muscleGroups, contains(e.muscle), reason: e.id);
+      expect(kit, contains(e.equip), reason: e.id);
+      expect(const {'c', 'i', 'b', 'k'}, contains(e.type), reason: e.id);
+    }
+    expect(all.where((e) => const {'Corpo libero', 'Anelli', 'Elastici'}.contains(e.equip) && !e.isCardio).length, greaterThanOrEqualTo(75));
+  });
+
   group('fase e voto delle calorie', () {
     test('la tolleranza dipende dalla fase', () {
       // 3.317 su 2.790 = +19%: il caso della segnalazione
@@ -207,7 +220,7 @@ void main() {
       final muscles = {for (final it in h.day.items) app.exercise(it.ex)!.muscle};
       expect(muscles, containsAll(h.muscles));
 
-      // senza manubri né parallele: per il petto restano i piegamenti, le spalle si saltano
+      // senza manubri né parallele: piegamenti per il petto, pike push-up per le spalle
       const bare = HomeGym();
       expect(canDoAtHome(app.exercise('push-up')!, bare), isTrue);
       expect(canDoAtHome(app.exercise('dip-petto')!, bare), isFalse);
@@ -216,9 +229,9 @@ void main() {
       expect(canDoAtHome(app.exercise('panca-inclinata-manubri')!, gym), isFalse, reason: 'serve la panca inclinabile');
       final lagging = [const MuscleWeek('Spalle', 1), const MuscleWeek('Petto', 2)];
       final only = homeSession(app, bare, lagging, id: 'x')!;
-      expect(only.muscles, ['Petto']);
-      expect(only.day.items.single.ex, 'push-up');
-      expect(only.day.items.single.rMin, 12);
+      expect(only.muscles, ['Spalle', 'Petto']);
+      expect(only.day.items.map((i) => i.ex), ['pike-push-up', 'push-up', 'push-up-declinati']);
+      expect(only.day.items[1].rMin, 12, reason: 'piegamenti facili: 12-25');
     });
 
     test('la settimana in corso conta anche le sedute in programma', () async {

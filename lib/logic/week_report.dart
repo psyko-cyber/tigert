@@ -207,6 +207,9 @@ List<String> _tips(AppState s, WeekReport r, Plan? plan, HomeSession? home) {
 const _homeNeeds = <String, Set<String>>{
   'trazioni': {'bar'},
   'chin-up': {'bar'},
+  'trazioni-presa-neutra': {'bar'},
+  'rematore-inverso': {'dip'}, // sotto le parallele della torre
+  'hip-thrust-monolaterale': {'bench'},
   'leg-raise-sbarra': {'bar'},
   'dip-petto': {'dip'},
   'dip-tricipiti': {'dip'},
@@ -226,17 +229,17 @@ const _homeNeeds = <String, Set<String>>{
 
 /// Esercizi da fare a casa per ogni muscolo, dal più utile con pesi leggeri.
 const homePicks = <String, List<String>>{
-  'Petto': ['dip-petto', 'push-up', 'panca-inclinata-manubri', 'panca-piana-manubri', 'croci-manubri'],
-  'Dorso': ['trazioni', 'rematore-manubrio', 'chin-up', 'rematore-panca-inclinata'],
-  'Spalle': ['lento-manubri', 'alzate-laterali', 'alzate-posteriori', 'y-raise', 'arnold-press', 'alzate-frontali'],
-  'Bicipiti': ['curl-manubri', 'curl-inclinata', 'curl-martello', 'curl-concentrato'],
-  'Tricipiti': ['dip-tricipiti', 'estensioni-manubrio', 'dip-panche', 'french-press-manubri', 'kickback'],
-  'Quadricipiti': ['bulgarian', 'goblet-squat', 'affondi-inversi', 'step-up'],
-  'Femorali': ['stacco-rumeno-monolaterale', 'stacco-rumeno-manubri'],
-  'Glutei': ['glute-bridge', 'frog-pump'],
+  'Petto': ['dip-petto', 'push-up', 'panca-inclinata-manubri', 'panca-piana-manubri', 'croci-manubri', 'floor-press-manubri', 'push-up-declinati'],
+  'Dorso': ['trazioni', 'rematore-manubrio', 'chin-up', 'rematore-panca-inclinata', 'trazioni-presa-neutra', 'rematore-inverso'],
+  'Spalle': ['lento-manubri', 'alzate-laterali', 'alzate-posteriori', 'y-raise', 'arnold-press', 'alzate-frontali', 'pike-push-up'],
+  'Bicipiti': ['curl-manubri', 'curl-inclinata', 'curl-martello', 'curl-concentrato', 'curl-zottman'],
+  'Tricipiti': ['dip-tricipiti', 'estensioni-manubrio', 'dip-panche', 'french-press-manubri', 'kickback', 'push-up-diamante'],
+  'Quadricipiti': ['bulgarian', 'goblet-squat', 'affondi-inversi', 'step-up', 'pistol-squat-assistito', 'bulgarian-corpo-libero'],
+  'Femorali': ['stacco-rumeno-monolaterale', 'stacco-rumeno-manubri', 'leg-curl-scivolamento'],
+  'Glutei': ['glute-bridge', 'frog-pump', 'hip-thrust-monolaterale', 'glute-bridge-monolaterale'],
 };
 
-const _easyBodyweight = {'push-up', 'glute-bridge', 'frog-pump'};
+const _easyBodyweight = {'push-up', 'glute-bridge', 'frog-pump', 'bulgarian-corpo-libero', 'glute-bridge-monolaterale'};
 
 bool canDoAtHome(Exercise e, HomeGym g) {
   if (e.isCardio) return false;

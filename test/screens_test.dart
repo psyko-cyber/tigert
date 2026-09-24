@@ -320,5 +320,28 @@ void main() {
     });
   }
 
+  testWidgets('Aggiungi a ieri', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(_wrap(const AddHubScreen(embedded: true)));
+    await tester.pump(const Duration(milliseconds: 300));
+    final yesterday = addDaysKey(todayKey(), -1);
+    final before = app.entries(yesterday).length;
+    await tester.tap(find.text('Ieri'));
+    await tester.pump();
+    final plus = find.byType(PlusBadge).first;
+    await tester.ensureVisible(plus);
+    await tester.pumpAndSettle();
+    await tester.tap(plus);
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(app.entries(yesterday).length, before + 1);
+    expect(find.textContaining('di ieri'), findsOneWidget, reason: 'il toast dice il giorno');
+    final added = app.entries(yesterday).last;
+    app.deleteEntry(added.id);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 5));
+  });
+
   test('dispositivo di test', () => expect(isDesktop, isTrue));
 }

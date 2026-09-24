@@ -12,7 +12,8 @@ import '../data/models.dart';
 ///   petto a inizio seduta valgono più di 10 di bicipiti in coda;
 /// - **vicinanza al cedimento**: RPE 8 o più vale 1, RPE 7 vale 0,75, sotto 0,5;
 /// - **tipo**: avvicinamento 0, dropset 0,5;
-/// - **muscoli secondari**: i multiarticolari danno 0,5 ai muscoli che aiutano.
+/// - **muscoli secondari**: i multiarticolari (anche a corpo libero: trazioni, dip,
+///   piegamenti, squat) danno 0,5 ai muscoli che aiutano.
 
 const mainMuscles = ['Petto', 'Dorso', 'Spalle', 'Bicipiti', 'Tricipiti', 'Quadricipiti', 'Femorali', 'Glutei'];
 const minEffective = 8.0; // sotto: poco stimolo a settimana
@@ -25,6 +26,18 @@ const _secondary = <String, Map<String, double>>{
   'Quadricipiti': {'Glutei': 0.5},
   'Femorali': {'Glutei': 0.5},
 };
+
+/// Multiarticolari a corpo libero (tipo 'b' nel catalogo): contano i secondari come i 'c'.
+const _bodyweightCompound = {
+  'trazioni', 'chin-up', 'trazioni-presa-larga', 'trazioni-presa-neutra', 'trazioni-negative', 'trazioni-elastico',
+  'trazioni-archer', 'trazioni-esplosive', 'muscle-up', 'muscle-up-anelli', 'rematore-inverso', 'rematore-anelli',
+  'dip-petto', 'dip-anelli', 'dip-sbarra', 'push-up', 'push-up-inclinati', 'push-up-declinati', 'push-up-larghi',
+  'push-up-archer', 'push-up-esplosivi', 'push-up-anelli', 'pike-push-up', 'pike-push-up-rialzato', 'hspu',
+  'pseudo-planche-push-up', 'squat-corpo-libero', 'jump-squat', 'pistol-squat', 'pistol-squat-assistito', 'shrimp-squat',
+  'affondi-corpo-libero', 'affondi-saltati', 'bulgarian-corpo-libero', 'cossack-squat',
+};
+
+bool isCompound(Exercise ex) => ex.type == 'c' || _bodyweightCompound.contains(ex.id);
 
 double positionFactor(int workSetsBefore) => math.max(0.5, 1 - 0.025 * workSetsBefore);
 double rpeFactor(double? rpe) => rpe == null || rpe >= 8 ? 1 : (rpe >= 7 ? 0.75 : 0.5);
@@ -68,7 +81,7 @@ Map<String, MuscleVolume> muscleVolume(Iterable<List<VolSet>> sessions) {
       m.sets += kind;
       m.direct += w;
       m.effective += w;
-      if (ex.type == 'c') {
+      if (isCompound(ex)) {
         _secondary[ex.muscle]?.forEach((sec, k) => of(sec).effective += w * k);
       }
       if (s.type == setWork) before++;

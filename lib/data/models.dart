@@ -705,6 +705,9 @@ const mealLabels = {
   'post': 'Post-workout',
 };
 
+/// Dopo mezzanotte, fino alle 4, quello che mangi conta ancora per ieri.
+bool isLateNight([DateTime? t]) => (t ?? DateTime.now()).hour < 4;
+
 String mealForNow([DateTime? t]) {
   final n = t ?? DateTime.now();
   final m = n.hour * 60 + n.minute;

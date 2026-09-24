@@ -18,6 +18,15 @@ class ExercisePickerScreen extends StatefulWidget {
 class _ExercisePickerScreenState extends State<ExercisePickerScreen> {
   final ctl = TextEditingController();
   late String? muscle = widget.initialMuscle;
+  String? kit; // filtro attrezzo (chiave di _kits)
+
+  /// Filtri per attrezzo: il parchetto è corpo libero, anelli ed elastici.
+  static const _kits = {
+    'Corpo libero': {'Corpo libero', 'Anelli', 'Elastici', 'Elastico'},
+    'Manubri': {'Manubri', 'Kettlebell'},
+    'Bilanciere': {'Bilanciere'},
+    'Macchine e cavi': {'Macchina', 'Cavi', 'Multipower'},
+  };
 
   @override
   void dispose() {
@@ -40,6 +49,7 @@ class _ExercisePickerScreenState extends State<ExercisePickerScreen> {
     final q = fold(ctl.text.trim());
     final list = app.exercises.values.where((e) {
       if (muscle != null && e.muscle != muscle) return false;
+      if (kit != null && !_kits[kit]!.contains(e.equip)) return false;
       if (q.isEmpty) return true;
       return fold('${e.name} ${e.muscle} ${e.equip}').contains(q);
     }).toList()
@@ -69,6 +79,17 @@ class _ExercisePickerScreenState extends State<ExercisePickerScreen> {
                   child: ListView(scrollDirection: Axis.horizontal, children: [
                     PillChip('Tutti', selected: muscle == null, onTap: () => setState(() => muscle = null)),
                     for (final m in muscleGroups) ...[const SizedBox(width: 6), PillChip(m, selected: muscle == m, onTap: () => setState(() => muscle = m))],
+                  ]),
+                ),
+                const SizedBox(height: 6),
+                SizedBox(
+                  height: 36,
+                  child: ListView(scrollDirection: Axis.horizontal, children: [
+                    PillChip('Ogni attrezzo', selected: kit == null, onTap: () => setState(() => kit = null)),
+                    for (final k in _kits.keys) ...[
+                      const SizedBox(width: 6),
+                      PillChip(k, icon: k == 'Corpo libero' ? Icons.park_rounded : null, selected: kit == k, onTap: () => setState(() => kit = k)),
+                    ],
                   ]),
                 ),
               ]),
@@ -130,7 +151,7 @@ class _NewExerciseSheetState extends State<_NewExerciseSheet> {
           Wrap(spacing: 6, runSpacing: 6, children: [for (final m in muscleGroups) PillChip(m, selected: muscle == m, onTap: () => setState(() => muscle = m))]),
           const SectionLabel('Attrezzo'),
           Wrap(spacing: 6, runSpacing: 6, children: [
-            for (final e in ['Bilanciere', 'Manubri', 'Macchina', 'Cavi', 'Multipower', 'Corpo libero', 'Kettlebell', 'Elastici'])
+            for (final e in ['Bilanciere', 'Manubri', 'Macchina', 'Cavi', 'Multipower', 'Corpo libero', 'Anelli', 'Kettlebell', 'Elastici'])
               PillChip(e, selected: equip == e, onTap: () => setState(() => equip = e)),
           ]),
           const SectionLabel('Tipo'),

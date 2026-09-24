@@ -22,6 +22,13 @@ void main() {
       expect(addDaysKey('2026-02-28', 1), '2026-03-01');
       expect(daysBetween(fromKey('2026-01-01'), fromKey('2026-01-31')), 30);
     });
+
+    test('dopo mezzanotte, fino alle 4, il cibo va su ieri', () {
+      expect(isLateNight(DateTime(2026, 9, 25, 0, 30)), isTrue);
+      expect(isLateNight(DateTime(2026, 9, 25, 3, 59)), isTrue);
+      expect(isLateNight(DateTime(2026, 9, 25, 4)), isFalse);
+      expect(isLateNight(DateTime(2026, 9, 24, 23, 50)), isFalse);
+    });
   });
 
   group('target', () {

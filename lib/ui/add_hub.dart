@@ -42,7 +42,8 @@ class MealChips extends StatelessWidget {
 
 /// Conferma breve dopo un'aggiunta (senza Annulla: si corregge dal Diario).
 void confirmAdded(BuildContext context, LogEntry e) {
-  toast(context, 'Aggiunto a ${mealLabels[e.meal]!.toLowerCase()} · ${fInt(e.kcal)} kcal');
+  final day = e.date == todayKey() ? '' : ' di ${relDay(fromKey(e.date)).toLowerCase()}';
+  toast(context, 'Aggiunto a ${mealLabels[e.meal]!.toLowerCase()}$day · ${fInt(e.kcal)} kcal');
 }
 
 class AddHubScreen extends StatefulWidget {
@@ -55,8 +56,17 @@ class AddHubScreen extends StatefulWidget {
 }
 
 class _AddHubScreenState extends State<AddHubScreen> {
-  late String meal = widget.meal ?? mealForNow();
-  String get date => widget.date ?? todayKey();
+  late String meal = widget.meal ?? _defaultMeal();
+  late String date = widget.date ?? _defaultDate();
+
+  // dopo mezzanotte il frullato delle 00:30 va su ieri, a cena
+  static String _defaultDate() => isLateNight() ? addDaysKey(todayKey(), -1) : todayKey();
+  static String _defaultMeal() => isLateNight() ? 'cena' : mealForNow();
+
+  Future<void> _pickDay() async {
+    final r = await showDatePicker(context: context, initialDate: fromKey(date), firstDate: DateTime(2020), lastDate: today().add(const Duration(days: 30)));
+    if (r != null && mounted) setState(() => date = dayKey(r));
+  }
 
   @override
   void initState() {
@@ -71,7 +81,12 @@ class _AddHubScreenState extends State<AddHubScreen> {
   }
 
   void _onTab() {
-    if (ShellNav.tab.value == 2 && mounted) setState(() => meal = mealForNow());
+    if (ShellNav.tab.value == 2 && mounted) {
+      setState(() {
+        meal = _defaultMeal();
+        date = _defaultDate();
+      });
+    }
   }
 
   Future<void> _open(Widget page) async {
@@ -87,6 +102,8 @@ class _AddHubScreenState extends State<AddHubScreen> {
     final app = context.app;
     final t = context.tt;
     final d = fromKey(date);
+    final todayK = todayKey(), yesterdayK = addDaysKey(todayK, -1);
+    final otherDay = date != todayK && date != yesterdayK;
     final fav = app.favorites;
     final recents = app.recentFoods(limit: 10);
     final favFoods = fav.map(app.food).whereType<Food>().toList();
@@ -152,6 +169,16 @@ class _AddHubScreenState extends State<AddHubScreen> {
       ],
       Text('Due tap e sei a posto. ${mealLabels[meal]} · ${relDay(d).toLowerCase()}', style: TS.muted(t)),
       const SizedBox(height: 14),
+      Wrap(spacing: 8, runSpacing: 8, children: [
+        PillChip('Ieri', selected: date == yesterdayK, onTap: () => setState(() => date = yesterdayK)),
+        PillChip('Oggi', selected: date == todayK, onTap: () => setState(() => date = todayK)),
+        PillChip(otherDay ? relDay(d) : 'Altro giorno', icon: Icons.calendar_month_rounded, selected: otherDay, onTap: _pickDay),
+      ]),
+      if (date == yesterdayK && isLateNight()) ...[
+        const SizedBox(height: 6),
+        Text('È passata la mezzanotte: fino alle 4 quello che mangi va su ieri.', style: TS.muted(t, 12)),
+      ],
+      const SizedBox(height: 12),
       MealChips(selected: meal, onChanged: (m) => setState(() => meal = m)),
       const SizedBox(height: 16),
       GridView.count(
