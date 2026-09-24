@@ -110,6 +110,8 @@ void main() {
     expect(pc.habit(todayKey()).water, 250, reason: 'il dato deve essere salvato');
     expect(find.textContaining('0,25 /'), findsOneWidget, reason: 'la schermata deve mostrare 0,25 L');
 
+    await tester.ensureVisible(find.text('2'));
+    await tester.pump(const Duration(milliseconds: 300));
     await tester.tap(find.text('2'));
     await tester.pump(const Duration(milliseconds: 300));
     expect(pc.habit(todayKey()).alcohol, 2);

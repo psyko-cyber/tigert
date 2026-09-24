@@ -7,6 +7,7 @@ import 'package:tigert/data/catalog.dart';
 import 'package:tigert/data/local_prefs.dart';
 import 'package:tigert/data/models.dart';
 import 'package:tigert/data/store.dart';
+import 'package:tigert/logic/activity.dart';
 import 'package:tigert/logic/score.dart';
 import 'package:tigert/logic/week_report.dart';
 
@@ -144,6 +145,30 @@ void main() {
       expect(after.kcalScore, 1);
       expect(after.v, greaterThan(before.v));
       expect(after.parts.first.rows.any((r) => r.k == 'Fase: bulk pesante'), isTrue);
+    });
+
+    test('le attività extra tolgono le calorie bruciate da quelle mangiate', () async {
+      expect(activityKcal('calcetto', 60, 80), 560, reason: '(MET 8 − 1) × 80 kg × 1 h');
+      expect(activityKcal('calcetto', 60, 80, 2), 720, reason: 'intensa: MET × 1,25');
+      expect(activityKcal('calcetto', 60, 80, 0), 400, reason: 'leggera: MET × 0,75');
+      expect(activityKcal('beach', 90, 70), 735);
+      expect(activityKcal('yoga', 30, 70), 70);
+
+      final app = await newApp();
+      final k = todayKey();
+      app.addEntry(LogEntry(id: 'e1', date: k, meal: 'pranzo', name: 'Pasta', kcal: 3317, p: 150, c: 450, f: 99, ts: 1));
+      expect(app.score(k).kcalScore, closeTo(0.84, 0.01));
+      const calcetto = ExtraActivity(kind: 'calcetto', name: 'Calcetto', min: 60, kcal: 560);
+      app.saveHabit(app.habit(k).copyWith(extra: [calcetto]));
+      final after = app.score(k);
+      expect(after.kcalScore, 1, reason: '3.317 − 560 = 2.757 kcal nette su 2.790');
+      expect(after.parts.first.rows.first.k, startsWith('Calorie nette 2.757 / 2.790'));
+      expect(after.parts.first.rows.any((r) => r.v == '−560 kcal'), isTrue);
+
+      final h = HabitDay.fromMap(app.habit(k).toMap());
+      expect(h.burned, 560);
+      expect(h.withOff('dolore').extra.single.name, 'Calcetto', reason: 'il giorno giustificato non cancella le attività');
+      expect(const HabitDay(date: 'x').toMap().keys, isNot(contains('extra')), reason: 'i record vecchi non cambiano');
     });
   });
 

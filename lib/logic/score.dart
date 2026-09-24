@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import '../core/fmt.dart';
 import '../data/app_state.dart';
 import '../data/models.dart';
+import 'activity.dart';
 
 /// Tono di una riga del dettaglio voto.
 enum Tone { good, warn, bad, dim }
@@ -106,7 +107,9 @@ DayScore computeScore(AppState s, String date) {
 
   // ---------------------------------------------------------- nutrizione
   final phase = p.phaseOn(date);
-  final kS = kcalScoreFor(t.kcal, p.kcal, phase);
+  final burned = h.burned;
+  final net = netKcal(t, h); // le attività extra tolgono calorie da quelle mangiate
+  final kS = kcalScoreFor(net, p.kcal, phase);
   final pS = t.p <= 0 ? 0.0 : math.min(1.0, t.p / math.max(1, p.protein));
   final nutri = 0.6 * kS + 0.4 * pS;
 
@@ -172,14 +175,15 @@ DayScore computeScore(AppState s, String date) {
     hMax = 1.5;
   }
 
-  final hasData = t.kcal > 0 || daySessions.isNotEmpty || h.water > 0 || h.steps != null || h.sleep != null;
+  final hasData = t.kcal > 0 || daySessions.isNotEmpty || h.water > 0 || h.steps != null || h.sleep != null || h.extra.isNotEmpty;
 
   // ---------------------------------------------------------- dettaglio
-  final devPct = p.kcal <= 0 ? 0 : ((t.kcal - p.kcal) / p.kcal * 100).round();
+  final devPct = p.kcal <= 0 ? 0 : ((net - p.kcal) / p.kcal * 100).round();
   final devTxt = t.kcal <= 0 ? '' : ' (${devPct > 0 ? '+' : devPct < 0 ? '−' : '±'}${devPct.abs()}%)';
   final parts = <ScorePart>[
     ScorePart('Nutrizione', kMax * kS + pMax * pS, kMax + pMax, [
-      ScoreRow('Calorie ${fInt(t.kcal)} / ${fInt(p.kcal)}$devTxt', '${fDec(kMax * kS)} / ${fDec(kMax)}', kS > 0.8 ? Tone.good : (kS > 0.3 ? Tone.warn : Tone.bad)),
+      ScoreRow('Calorie${burned > 0 ? ' nette' : ''} ${fInt(net)} / ${fInt(p.kcal)}$devTxt', '${fDec(kMax * kS)} / ${fDec(kMax)}', kS > 0.8 ? Tone.good : (kS > 0.3 ? Tone.warn : Tone.bad)),
+      if (burned > 0) ScoreRow('Mangiate ${fInt(t.kcal)} − ${h.extra.map((e) => e.name.toLowerCase()).join(', ')}', '−${fInt(burned)} kcal', Tone.dim),
       if (phase != Phase.maintain) ScoreRow('Fase: ${phase.label.toLowerCase()}', _tolShort(phase), Tone.dim),
       ScoreRow('Proteine ${fInt(t.p)} / ${p.protein} g', '${fDec(pMax * pS)} / ${fDec(pMax)}', pS > 0.9 ? Tone.good : (pS > 0.5 ? Tone.warn : Tone.bad)),
     ]),
@@ -205,7 +209,7 @@ DayScore computeScore(AppState s, String date) {
 
   // ---------------------------------------------------------- suggerimenti
   final tips = <Tip>[];
-  final remaining = p.kcal - t.kcal;
+  final remaining = p.kcal - net;
   if (kS < 1 && remaining > p.kcal * phase.tol.underFull) {
     final gain = kMax * (1 - kS);
     tips.add(Tip(gain, isToday || d.isAfter(today()) ? 'Mangia ancora circa ${fInt(round50(remaining))} kcal.' : 'Mancavano ${fInt(remaining)} kcal.'));

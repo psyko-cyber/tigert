@@ -813,6 +813,19 @@ class LogEntry {
 /// Motivi per cui un giorno di allenamento è giustificato (non penalizza il voto).
 const offReasons = {'dolore': 'Dolore o infortunio', 'malattia': 'Malattia', 'impegno': 'Impegno', 'altro': 'Altro'};
 
+/// Attività extra (calcetto, beach volley...): le kcal sono stimate quando la inserisci
+/// e restano fisse. Si tolgono da quelle mangiate nel voto e in Oggi.
+class ExtraActivity {
+  final String kind; // chiave di `sports` (logic/activity.dart)
+  final String name;
+  final int min;
+  final int lvl; // 0 leggera, 1 normale, 2 intensa
+  final int kcal;
+  const ExtraActivity({required this.kind, required this.name, required this.min, this.lvl = 1, required this.kcal});
+  Map<String, dynamic> toMap() => {'k': kind, 'n': name, 'min': min, 'lvl': lvl, 'kcal': kcal};
+  factory ExtraActivity.fromMap(Map m) => ExtraActivity(kind: _s(m['k']), name: _s(m['n']), min: _i(m['min']), lvl: _i(m['lvl'], 1), kcal: _i(m['kcal']));
+}
+
 class HabitDay {
   final String date;
   final int water; // ml
@@ -828,6 +841,7 @@ class HabitDay {
   final String? moveTo;
   // giorno di allenamento in più: qui arriva la seduta rimandata dal giorno [moved]
   final String? moved;
+  final List<ExtraActivity> extra;
   const HabitDay({
     required this.date,
     this.water = 0,
@@ -840,6 +854,7 @@ class HabitDay {
     this.avoid = const [],
     this.moveTo,
     this.moved,
+    this.extra = const [],
   });
   Map<String, dynamic> toMap() => {
         'date': date,
@@ -853,6 +868,7 @@ class HabitDay {
         if (off.isNotEmpty && avoid.isNotEmpty) 'avoid': avoid,
         if (off.isNotEmpty && moveTo != null) 'moveTo': moveTo,
         if (moved != null) 'moved': moved,
+        if (extra.isNotEmpty) 'extra': [for (final e in extra) e.toMap()],
       };
   factory HabitDay.fromMap(Map m) => HabitDay(
         date: _s(m['date']),
@@ -866,8 +882,9 @@ class HabitDay {
         avoid: ((m['avoid'] as List?) ?? const []).map((e) => e.toString()).toList(),
         moveTo: m['moveTo'] as String?,
         moved: m['moved'] as String?,
+        extra: [for (final e in (m['extra'] as List?) ?? const []) ExtraActivity.fromMap(e as Map)],
       );
-  HabitDay copyWith({int? water, int? sleep, int? steps, int? alcohol, bool clearAlcohol = false, List<String>? supp}) => HabitDay(
+  HabitDay copyWith({int? water, int? sleep, int? steps, int? alcohol, bool clearAlcohol = false, List<String>? supp, List<ExtraActivity>? extra}) => HabitDay(
         date: date,
         water: water ?? this.water,
         sleep: sleep ?? this.sleep,
@@ -879,16 +896,20 @@ class HabitDay {
         avoid: avoid,
         moveTo: moveTo,
         moved: moved,
+        extra: extra ?? this.extra,
       );
   HabitDay withOff(String reason, {String? dayId, List<String> avoid = const [], String? moveTo}) => HabitDay(
-      date: date, water: water, sleep: sleep, steps: steps, alcohol: alcohol, supp: supp, off: reason, offDay: dayId, avoid: avoid, moveTo: moveTo, moved: moved);
+      date: date, water: water, sleep: sleep, steps: steps, alcohol: alcohol, supp: supp, off: reason, offDay: dayId, avoid: avoid, moveTo: moveTo, moved: moved, extra: extra);
   HabitDay withMoved(String? from) => HabitDay(
-      date: date, water: water, sleep: sleep, steps: steps, alcohol: alcohol, supp: supp, off: off, offDay: offDay, avoid: avoid, moveTo: moveTo, moved: from);
+      date: date, water: water, sleep: sleep, steps: steps, alcohol: alcohol, supp: supp, off: off, offDay: offDay, avoid: avoid, moveTo: moveTo, moved: from, extra: extra);
   bool get isOff => off.isNotEmpty;
 
   /// Seduta rimandata a un altro giorno (non saltata: resta nel giro).
   bool get postponed => isOff && moveTo != null;
   bool took(String name) => supp.contains(name);
+
+  /// Kcal bruciate con le attività extra.
+  int get burned => extra.fold(0, (a, e) => a + e.kcal);
   HabitDay toggleSupp(String name) => copyWith(supp: took(name) ? supp.where((e) => e != name).toList() : [...supp, name]);
 }
 

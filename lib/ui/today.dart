@@ -8,6 +8,7 @@ import '../core/theme.dart';
 import '../data/app_state.dart';
 import '../data/models.dart';
 import '../logic/achievements.dart';
+import '../logic/activity.dart';
 import '../logic/nutrition.dart';
 import '../logic/progression.dart';
 import '../logic/score.dart';
@@ -16,6 +17,7 @@ import '../logic/training.dart';
 import '../services/updates.dart';
 import 'achievements_screen.dart';
 import 'diary.dart';
+import 'extra_activity.dart';
 import 'score_detail.dart';
 import 'session.dart';
 import 'shell.dart';
@@ -33,9 +35,11 @@ class TodayScreen extends StatelessWidget {
     final k = todayKey();
     final score = app.score(k);
     final tot = app.totals(k);
-    final left = p.kcal - tot.kcal;
+    final burned = app.habit(k).burned;
+    final net = netKcal(tot, app.habit(k));
+    final left = p.kcal - net;
     final phase = p.phaseOn(k);
-    final over = kcalOver(tot.kcal, p.kcal, phase);
+    final over = kcalOver(net, p.kcal, phase);
     final hour = DateTime.now().hour;
     final greet = hour < 12 ? 'Buongiorno' : (hour < 18 ? 'Ciao' : 'Buonasera');
     final update = UpdateInfo.fromMap(app.prefs.availableUpdate);
@@ -129,12 +133,23 @@ class TodayScreen extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            Text('${fInt(tot.kcal)} / ${fInt(p.kcal)} kcal', style: TextStyle(fontSize: 13, color: t.dim, fontFeatures: tabular)),
+            Text('${fInt(net)} / ${fInt(p.kcal)} kcal', style: TextStyle(fontSize: 13, color: t.dim, fontFeatures: tabular)),
           ]),
           const SizedBox(height: 2),
           Text(fInt(left.abs()), style: TS.num(t, 48, color: over ? TC.danger : null)),
           const SizedBox(height: 10),
-          BarTrack(pct: tot.kcal / math.max(1, p.kcal), color: over ? TC.danger : TC.accent),
+          BarTrack(pct: net / math.max(1, p.kcal), color: over ? TC.danger : TC.accent),
+          if (burned > 0) ...[
+            const SizedBox(height: 8),
+            Row(children: [
+              Icon(Icons.local_fire_department_rounded, size: 16, color: t.accentInk),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text('Mangiate ${fInt(tot.kcal)} − attività extra ${fInt(burned)} kcal',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: t.accentInk, fontFeatures: tabular)),
+              ),
+            ]),
+          ],
           const SizedBox(height: 16),
           Row(children: [
             Expanded(child: _Macro('PROTEINE', tot.p, p.protein, TC.prot)),
@@ -375,7 +390,6 @@ class _HabitsCard extends StatelessWidget {
       ));
     }
     final supps = p.habitOn('supp') ? p.supplements : const <String>[];
-    if (items.isEmpty && !p.habitOn('alcohol') && supps.isEmpty) return const SizedBox.shrink();
     return TCard(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const Label('Abitudini'),
@@ -384,6 +398,16 @@ class _HabitsCard extends StatelessWidget {
           Row(children: [
             for (var i = 0; i < items.length; i++) ...[if (i > 0) const SizedBox(width: 10), Expanded(child: items[i])],
           ]),
+        // attività extra (calcetto, beach volley...): tolgono calorie da quelle mangiate
+        for (var i = 0; i < h.extra.length; i++) ...[
+          const SizedBox(height: 10),
+          ExtraActivityRow(day: h, index: i),
+        ],
+        const SizedBox(height: 10),
+        SizedBox(
+          width: double.infinity,
+          child: SmallButton('Attività extra', icon: Icons.add_rounded, onTap: () => editExtraActivity(context, h)),
+        ),
         if (p.habitOn('alcohol')) ...[
           const SizedBox(height: 12),
           Row(children: [

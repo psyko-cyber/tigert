@@ -70,8 +70,8 @@ Map<String, String> buildCsvFiles(AppState app) {
           [s.date, s.name, e.name, i + 1, _n(e.sets[i].kg, 2), e.sets[i].reps, _n(e.sets[i].rpe), e.sets[i].done ? 'sì' : 'no', setTypeName(e.sets[i].t)],
   ]);
   final habits = app.habitsByDate.values.toList()..sort((a, b) => a.date.compareTo(b.date));
-  final abitudini = _csv(['data', 'acqua_ml', 'sonno_min', 'passi', 'alcol', 'integratori'], [
-    for (final h in habits) [h.date, h.water, h.sleep, h.steps, h.alcohol, h.supp.join(' + ')],
+  final abitudini = _csv(['data', 'acqua_ml', 'sonno_min', 'passi', 'alcol', 'integratori', 'attivita_extra', 'attivita_kcal'], [
+    for (final h in habits) [h.date, h.water, h.sleep, h.steps, h.alcohol, h.supp.join(' + '), h.extra.map((e) => '${e.name} ${e.min} min').join(' + '), h.burned],
   ]);
   final dates = app.activeDates.toList()..sort();
   final voti = _csv(['data', 'voto', 'kcal', 'proteine'], [

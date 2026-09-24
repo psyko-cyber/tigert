@@ -95,9 +95,9 @@ class _ScoreDetailScreenState extends State<ScoreDetailScreen> {
           ),
         const SectionLabel('Regola del voto'),
         Text(
-          'Nutrizione 50% (calorie entro ±10% e proteine sopra il target) · Allenamento 35% (sessione e serie completate) · '
+          'Nutrizione 50% (calorie vicine al target e proteine sopra il target) · Allenamento 35% (sessione e serie completate) · '
           'Abitudini 15% (acqua, sonno, passi, alcol). Nei giorni di riposo il 35% si redistribuisce su nutrizione e abitudini. '
-          'Le penalità sono simmetriche sopra e sotto il target calorico.',
+          'Quanto puoi stare sopra o sotto il target dipende dalla fase. Le attività extra tolgono le calorie bruciate da quelle mangiate.',
           style: TS.muted(t, 12.5),
         ),
       ]),

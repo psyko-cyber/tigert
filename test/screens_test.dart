@@ -133,6 +133,7 @@ Future<void> _seed() async {
   }
   final juice = catalog.foods.firstWhere((f) => fold(f.name).startsWith('spremuta'));
   app.addEntry(app.entryFromFood(juice, 200, date: today, meal: 'colazione'));
+  app.saveHabit(app.habit(today).copyWith(extra: const [ExtraActivity(kind: 'calcetto', name: 'Calcetto', min: 60, kcal: 560)]));
   // una sessione conclusa (ieri) e una in corso (oggi)
   final done = buildSession(app, plan: plan, day: plan.days.first);
   final finished = done.copyWith(
@@ -290,6 +291,33 @@ void main() {
         await tester.pumpWidget(const SizedBox());
       });
     }
+  }
+
+  for (final s in sizes.entries.where((s) => s.key != 'lungo')) {
+    testWidgets('Attività extra · ${s.key}', (tester) async {
+      tester.view.physicalSize = s.value;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(_wrap(const TodayScreen(), dark: s.key == 'telefono'));
+      await tester.pump(const Duration(milliseconds: 500));
+      final add = find.text('Attività extra');
+      await tester.ensureVisible(add);
+      await tester.pumpAndSettle();
+      await tester.tap(add);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Beach volley'));
+      await tester.tap(find.text('Intensa'));
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      if (_shots) await expectLater(find.byType(MaterialApp), matchesGoldenFile('shots/${s.key}/Attività_extra.png'));
+      await tester.tap(find.text('Aggiungi'));
+      await tester.pumpAndSettle();
+      final h = app.habit(todayKey());
+      expect(h.extra.map((e) => e.name), contains('Beach volley'));
+      app.saveHabit(h.copyWith(extra: h.extra.where((e) => e.kind != 'beach').toList()));
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 5));
+    });
   }
 
   test('dispositivo di test', () => expect(isDesktop, isTrue));
