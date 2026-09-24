@@ -19,11 +19,11 @@ Quando esce una nuova versione, Tigert te lo dice da solo.
 
 ## Cosa fa
 
-- **Oggi**: voto giornaliero da 0 a 10 (nutrizione 50%, allenamento 35%, abitudini 15%), calorie e macro, acqua, peso, sonno, passi. Attività extra (calcetto, beach volley, padel...) che tolgono le calorie bruciate da quelle mangiate.
+- **Oggi**: voto giornaliero da 0 a 10 (nutrizione 50%, allenamento 35%, abitudini 15%), calorie e macro, acqua, peso, sonno, passi. Il cibo si aggiunge anche a ieri (dopo mezzanotte parte da lì). Attività extra (calcetto, beach volley, padel...) che tolgono le calorie bruciate da quelle mangiate.
 - **Nutrizione**: database di oltre 300 alimenti italiani, ricerca e barcode con [Open Food Facts](https://world.openfoodfacts.org), ricette, "solo calorie", copia dei pasti.
 - **Foto del piatto con Gemini**: con la tua chiave API (automatico) oppure con il copia-incolla del prompt su gemini.google.com (gratis, senza chiave).
 - **Target adattivi**: massa, definizione o mantenimento. Calorie calcolate con Mifflin-St Jeor e corrette ogni 2 settimane con il TDEE reale. La fase (massa pulita, bulk pesante, definizione) decide quanto puoi scostarti dal target senza perdere punti.
-- **Allenamento**: schede pronte (Upper/Lower, PPL, Full body…) ed editor completo, 149 esercizi, timer di recupero, record e 1RM stimato. Giorni giustificati, sedute alternative e sedute rimandate.
+- **Allenamento**: schede pronte (Upper/Lower, PPL, Full body…) ed editor completo, 258 esercizi (anche calisthenics: trazioni, muscle-up, dip, lever, pistol squat…), timer di recupero, record e 1RM stimato. Giorni giustificati, sedute alternative e sedute rimandate.
 - **Coach di progressione**: doppia progressione automatica. Ti dice quando alzare il carico, quando cercare una ripetizione in più, quando scaricare dopo uno stallo e da che peso ripartire dopo una pausa; i carichi nuovi sono già precompilati nella sessione e arrivano anche nella notifica di allenamento.
 - **Import da Hevy**: storico, schede e cartelle, esercizi personalizzati e pesate. Con Hevy Pro via chiave API, oppure gratis dal CSV esportato dall'app.
 - **Report settimanale**: ogni sabato la percentuale allenata di ogni muscolo, cosa sistemare nella scheda e una seduta extra a casa con gli attrezzi che hai.
