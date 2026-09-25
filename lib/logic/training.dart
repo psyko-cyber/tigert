@@ -155,6 +155,15 @@ WeekSlot? todaySlot(AppState s) {
   return null;
 }
 
+/// Fine di una seduta: adesso, oppure per quelle di un giorno passato la fine
+/// già salvata o una stima (3 minuti a serie, almeno 20).
+int sessionEnd(Session s) {
+  if (s.date == todayKey()) return DateTime.now().millisecondsSinceEpoch;
+  final end = s.end;
+  if (end != null && end > s.start) return end;
+  return s.start + Duration(minutes: math.max(20, s.doneSets * 3)).inMilliseconds;
+}
+
 int planWeek(Plan plan) => math.max(1, daysBetween(fromKey(plan.startDate), today()) ~/ 7 + 1);
 
 class WeekVolume {
@@ -197,18 +206,20 @@ PlanItem defaultItemFor(Exercise? e, String id) => switch (e?.type) {
     };
 
 /// Crea una nuova sessione precompilata con i carichi suggeriti.
-Session buildSession(AppState s, {Plan? plan, PlanDay? day, String? name}) {
+/// [date]: seduta registrata a posteriori in un giorno passato (inizio alle 18).
+Session buildSession(AppState s, {Plan? plan, PlanDay? day, String? name, String? date}) {
+  final k = date ?? todayKey();
   final items = <SessionEx>[];
   for (final it in day?.items ?? const <PlanItem>[]) {
     items.add(buildSessionEx(s, it));
   }
   return Session(
     id: newId(),
-    date: todayKey(),
+    date: k,
     planId: plan?.id,
     dayId: day?.id,
     name: name ?? day?.name ?? 'Allenamento libero',
-    start: DateTime.now().millisecondsSinceEpoch,
+    start: k == todayKey() ? DateTime.now().millisecondsSinceEpoch : fromKey(k).add(const Duration(hours: 18)).millisecondsSinceEpoch,
     items: items,
   );
 }

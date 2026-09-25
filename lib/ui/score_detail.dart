@@ -4,6 +4,7 @@ import '../core/fmt.dart';
 import '../core/theme.dart';
 import '../data/app_state.dart';
 import '../logic/score.dart';
+import 'shell.dart';
 import 'widgets.dart';
 
 class ScoreDetailScreen extends StatefulWidget {
@@ -33,11 +34,7 @@ class _ScoreDetailScreenState extends State<ScoreDetailScreen> {
     return SubPage(
       title: date == todayKey() ? 'Voto di oggi' : 'Voto · ${shortDate(d)}',
       body: PageBody(children: [
-        Row(children: [
-          SmallButton('‹', onTap: () => setState(() => date = addDaysKey(date, -1))),
-          Expanded(child: Text(relDay(d), textAlign: TextAlign.center, style: TS.title(t))),
-          SmallButton('›', onTap: date == todayKey() ? null : () => setState(() => date = addDaysKey(date, 1))),
-        ]),
+        DayBar(date: date, onChanged: (k) => setState(() => date = k)),
         const SizedBox(height: 14),
         TCard(
           child: Row(children: [
@@ -58,6 +55,11 @@ class _ScoreDetailScreenState extends State<ScoreDetailScreen> {
             ),
           ]),
         ),
+        // manca qualcosa (sonno, passi, un pasto)? si entra nella giornata e si sistema
+        if (date != todayKey()) ...[
+          const SizedBox(height: 10),
+          PrimaryButton('Modifica questa giornata', icon: Icons.edit_calendar_rounded, onTap: () => DayNav.open(context, date)),
+        ],
         for (final part in s.parts)
           TCard(
             margin: const EdgeInsets.only(top: 10),

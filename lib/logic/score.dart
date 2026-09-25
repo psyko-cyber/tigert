@@ -220,7 +220,7 @@ DayScore computeScore(AppState s, String date) {
   }
   if (!rest && allenV < 1) {
     final gain = aMax * (1 - allenV);
-    tips.add(Tip(gain, daySessions.isEmpty ? 'Fai l\'allenamento di oggi.' : 'Completa le ${planned - done} serie mancanti.'));
+    tips.add(Tip(gain, daySessions.isEmpty ? (isToday ? 'Fai l\'allenamento di oggi.' : 'Registra la seduta di quel giorno.') : 'Completa le ${planned - done} serie mancanti.'));
   }
   if (p.habitOn('water') && h.water < p.waterMl) {
     final miss = (p.waterMl - h.water) / 1000;
@@ -228,7 +228,7 @@ DayScore computeScore(AppState s, String date) {
   }
   if (p.habitOn('steps') && (h.steps ?? 0) < p.steps) {
     tips.add(Tip(hMax / habitScores.length * (1 - (h.steps ?? 0) / p.steps),
-        h.steps == null ? 'Registra i passi di oggi.' : 'Fai ancora ${fInt(p.steps - h.steps!)} passi.'));
+        h.steps == null ? (isToday ? 'Registra i passi di oggi.' : 'Registra i passi di quel giorno.') : 'Fai ancora ${fInt(p.steps - h.steps!)} passi.'));
   }
   if (p.habitOn('sleep') && h.sleep == null) {
     tips.add(Tip(hMax / habitScores.length, 'Registra le ore di sonno.'));

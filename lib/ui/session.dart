@@ -120,6 +120,8 @@ class _SessionScreenState extends State<SessionScreen> {
 
   /// Recupero dopo una serie: niente prima di un dropset, breve dopo un avvicinamento.
   void _restAfter(SessionEx e, int si, {required bool last}) {
+    // seduta di un giorno passato compilata dopo: niente recupero
+    if (app.session(widget.sessionId)?.date != todayKey()) return;
     final sets = e.sets;
     final next = sets.indexWhere((x) => !x.done);
     if (next < 0 && last) return;
@@ -188,7 +190,7 @@ class _SessionScreenState extends State<SessionScreen> {
     }
     app.prefs.restEndsAt = null;
     await Services.notif.cancelRestEnd();
-    final done = s.copyWith(status: 'done', end: DateTime.now().millisecondsSinceEpoch);
+    final done = s.copyWith(status: 'done', end: sessionEnd(s));
     _save(done);
     if (mounted) Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => SessionSummaryScreen(sessionId: s.id, fresh: true)));
   }
@@ -283,7 +285,7 @@ class _SessionScreenState extends State<SessionScreen> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(color: t.surf2, borderRadius: BorderRadius.circular(99)),
-          child: Text(fDuration(s.duration), style: TS.num(t, 14, w: FontWeight.w700)),
+          child: Text(s.date == todayKey() ? fDuration(s.duration) : relDay(fromKey(s.date)), style: TS.num(t, 14, w: FontWeight.w700)),
         ),
         PopupMenuButton<String>(
           onSelected: (v) {

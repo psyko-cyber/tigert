@@ -278,6 +278,71 @@ class NoteBox extends StatelessWidget {
   }
 }
 
+/// Barra ‹ giorno ›: le frecce cambiano giorno, il centro apre il calendario.
+/// Fuori da oggi si colora e mostra "Oggi" per tornare.
+class DayBar extends StatelessWidget {
+  final String date;
+  final ValueChanged<String> onChanged;
+  const DayBar({super.key, required this.date, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tt;
+    final d = fromKey(date);
+    final todayK = todayKey();
+    final isToday = date == todayK;
+    final label = switch (daysBetween(today(), d)) {
+      0 => 'Oggi',
+      -1 => 'Ieri · ${giorniBrevi[d.weekday - 1].toLowerCase()} ${shortDate(d)}',
+      _ => '${giorni[d.weekday - 1]} ${shortDateY(d)}',
+    };
+    Widget arrow(IconData icon, String tip, VoidCallback? onTap) => IconButton(
+          onPressed: onTap,
+          tooltip: tip,
+          icon: Icon(icon),
+          color: t.ink,
+          disabledColor: t.line,
+          visualDensity: VisualDensity.compact,
+        );
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      decoration: BoxDecoration(
+        color: isToday ? t.surf : t.accentTint,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: isToday ? t.line : t.accentLine),
+      ),
+      child: Row(children: [
+        arrow(Icons.chevron_left_rounded, 'Giorno prima', () => onChanged(addDaysKey(date, -1))),
+        Expanded(
+          child: Tap(
+            radius: 10,
+            onTap: () async {
+              final r = await showDatePicker(
+                  context: context, initialDate: d.isAfter(today()) ? today() : d, firstDate: DateTime(2020), lastDate: today(), helpText: 'Scegli il giorno');
+              if (r != null) onChanged(dayKey(r));
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                Icon(Icons.calendar_month_rounded, size: 17, color: isToday ? t.dim : t.accentInk),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700, color: t.ink)),
+                ),
+              ]),
+            ),
+          ),
+        ),
+        arrow(Icons.chevron_right_rounded, 'Giorno dopo', date.compareTo(todayK) < 0 ? () => onChanged(addDaysKey(date, 1)) : null),
+        if (!isToday) ...[
+          SmallButton('Oggi', accent: true, onTap: () => onChanged(todayK)),
+          const SizedBox(width: 4),
+        ],
+      ]),
+    );
+  }
+}
+
 /// Card "suggerimento" con bordo lime.
 class TipCard extends StatelessWidget {
   final String title;

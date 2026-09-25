@@ -19,7 +19,7 @@ Quando esce una nuova versione, Tigert te lo dice da solo.
 
 ## Cosa fa
 
-- **Oggi**: voto giornaliero da 0 a 10 (nutrizione 50%, allenamento 35%, abitudini 15%), calorie e macro, acqua, peso, sonno, passi. Il cibo si aggiunge anche a ieri (dopo mezzanotte parte da lì). Attività extra (calcetto, beach volley, padel...) che tolgono le calorie bruciate da quelle mangiate.
+- **Oggi**: voto giornaliero da 0 a 10 (nutrizione 50%, allenamento 35%, abitudini 15%), calorie e macro, acqua, peso, sonno, passi. Con la barra ‹ giorno › entri in qualsiasi giornata passata e la modifichi come oggi: cibo, acqua, peso, sonno, passi, integratori, attività e seduta (dopo mezzanotte Aggiungi parte da ieri). Attività extra (calcetto, beach volley, padel...) che tolgono le calorie bruciate da quelle mangiate.
 - **Nutrizione**: database di oltre 300 alimenti italiani, ricerca e barcode con [Open Food Facts](https://world.openfoodfacts.org), ricette, "solo calorie", copia dei pasti.
 - **Foto del piatto con Gemini**: con la tua chiave API (automatico) oppure con il copia-incolla del prompt su gemini.google.com (gratis, senza chiave).
 - **Target adattivi**: massa, definizione o mantenimento. Calorie calcolate con Mifflin-St Jeor e corrette ogni 2 settimane con il TDEE reale. La fase (massa pulita, bulk pesante, definizione) decide quanto puoi scostarti dal target senza perdere punti.

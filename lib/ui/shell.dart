@@ -24,7 +24,28 @@ Future<T?> push<T>(BuildContext context, Widget page) => Navigator.of(context).p
 /// Permette alle schermate di cambiare scheda (es. "Vedi allenamento").
 class ShellNav {
   static final tab = ValueNotifier<int>(0);
-  static void go(int i) => tab.value = i;
+  static void go(int i) {
+    // "Oggi" toccato di nuovo mentre sei già lì: si torna al giorno corrente
+    if (i == 0 && tab.value == 0) DayNav.reset();
+    tab.value = i;
+  }
+}
+
+/// Giorno aperto in Oggi e Aggiungi (null = oggi): si entra in una giornata
+/// passata e la si modifica come se fosse oggi.
+class DayNav {
+  static final day = ValueNotifier<String?>(null);
+  static String get key => day.value ?? todayKey();
+  static bool get isToday => key == todayKey();
+  static void set(String k) => day.value = k.compareTo(todayKey()) >= 0 ? null : k;
+  static void reset() => day.value = null;
+
+  /// Apre la giornata [k] nella scheda Oggi (es. dal Voto).
+  static void open(BuildContext context, String k) {
+    set(k);
+    Navigator.of(context).popUntil((r) => r.isFirst);
+    ShellNav.tab.value = 0;
+  }
 }
 
 class HomeShell extends StatefulWidget {
@@ -48,20 +69,34 @@ const _items = [
   _NavItem('Profilo', Icons.person_outline_rounded, Icons.person_rounded),
 ];
 
-class _HomeShellState extends State<HomeShell> {
+class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   bool _checkingBadges = false;
+  DateTime? _away;
 
   @override
   void initState() {
     super.initState();
     ShellNav.tab.addListener(_onTab);
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) => _startup());
   }
 
   @override
   void dispose() {
     ShellNav.tab.removeListener(_onTab);
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  // dopo un quarto d'ora fuori dall'app si riparte da oggi
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState s) {
+    if (s == AppLifecycleState.paused || s == AppLifecycleState.hidden) _away ??= DateTime.now();
+    if (s == AppLifecycleState.resumed) {
+      final away = _away;
+      _away = null;
+      if (away != null && DateTime.now().difference(away).inMinutes >= 15) DayNav.reset();
+    }
   }
 
   void _onTab() => setState(() {});

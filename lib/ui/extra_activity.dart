@@ -47,7 +47,7 @@ Future<void> editExtraActivity(BuildContext context, HabitDay h, [int? index]) a
             child: ListView(shrinkWrap: true, padding: const EdgeInsets.fromLTRB(20, 0, 20, 16), children: [
               Text(old == null ? 'Attività extra' : 'Modifica attività', style: TS.h2(t)),
               const SizedBox(height: 4),
-              Text('Le calorie bruciate si tolgono da quelle mangiate: oggi puoi mangiare di più.', style: TS.muted(t)),
+              Text('Le calorie bruciate si tolgono da quelle mangiate: ${h.date == todayKey() ? 'oggi' : 'quel giorno'} puoi mangiare di più.', style: TS.muted(t)),
               const SizedBox(height: 14),
               Wrap(spacing: 6, runSpacing: 6, children: [
                 for (final (k, n, _) in sports) PillChip(n, icon: sportIcon(k), selected: kind == k, onTap: () => set(() => kind = k)),

@@ -51,6 +51,7 @@ import 'package:tigert/ui/settings/profile_settings.dart';
 import 'package:tigert/ui/settings/reminders_settings.dart';
 import 'package:tigert/ui/settings/sync_settings.dart';
 import 'package:tigert/ui/today.dart';
+import 'package:tigert/ui/shell.dart';
 import 'package:tigert/ui/training.dart';
 import 'package:tigert/ui/volume.dart';
 import 'package:tigert/ui/week_report.dart';
@@ -195,7 +196,19 @@ void main() {
   final screens = <String, Widget Function()>{
     'Onboarding': () => const OnboardingScreen(),
     'Oggi': () => const TodayScreen(),
+    'Oggi su ieri': () {
+      DayNav.set(addDaysKey(todayKey(), -1));
+      return const TodayScreen();
+    },
+    'Oggi su 3 giorni fa': () {
+      DayNav.set(addDaysKey(todayKey(), -3));
+      return const TodayScreen();
+    },
     'Aggiungi': () => const AddHubScreen(embedded: true),
+    'Aggiungi su ieri': () {
+      DayNav.set(addDaysKey(todayKey(), -1));
+      return const AddHubScreen(embedded: true);
+    },
     'Cerca': () => FoodSearchScreen(date: todayKey(), meal: 'pranzo', focusSearch: false),
     'Quantità': () => FoodAmountScreen(food: chicken, date: todayKey(), meal: 'pranzo'),
     'Quantità piatto': () => FoodAmountScreen(food: app.catalog.foodById['s:pasta-al-ragu']!, date: todayKey(), meal: 'cena'),
@@ -273,6 +286,7 @@ void main() {
         tester.view.physicalSize = s.value;
         tester.view.devicePixelRatio = 1;
         addTearDown(tester.view.reset);
+        DayNav.reset();
         await tester.pumpWidget(_wrap(e.value(), dark: s.key == 'telefono'));
         await tester.pump(const Duration(milliseconds: 100));
         await tester.pump(const Duration(milliseconds: 900));
@@ -328,8 +342,10 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     final yesterday = addDaysKey(todayKey(), -1);
     final before = app.entries(yesterday).length;
-    await tester.tap(find.text('Ieri'));
+    DayNav.reset();
+    await tester.tap(find.byTooltip('Giorno prima'));
     await tester.pump();
+    expect(DayNav.key, yesterday, reason: 'la barra sposta il giorno anche in Oggi');
     final plus = find.byType(PlusBadge).first;
     await tester.ensureVisible(plus);
     await tester.pumpAndSettle();
@@ -339,8 +355,71 @@ void main() {
     expect(find.textContaining('di ieri'), findsOneWidget, reason: 'il toast dice il giorno');
     final added = app.entries(yesterday).last;
     app.deleteEntry(added.id);
+    DayNav.reset();
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 5));
+  });
+
+  testWidgets('Oggi su una giornata passata si modifica tutto', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final yesterday = addDaysKey(todayKey(), -1);
+    DayNav.set(yesterday);
+    await tester.pumpWidget(_wrap(const TodayScreen()));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('STAI MODIFICANDO'), findsOneWidget);
+    expect(find.text('VOTO DI IERI'), findsOneWidget);
+    expect(find.textContaining('· fatto'), findsOneWidget, reason: 'la seduta di ieri');
+    final water = app.habit(yesterday).water;
+    final add = find.text('+ 250 ml');
+    await tester.ensureVisible(add);
+    await tester.pumpAndSettle();
+    await tester.tap(add);
+    await tester.pump();
+    expect(app.habit(yesterday).water, water + 250, reason: 'l\'acqua va su ieri');
+    app.addWater(yesterday, -250);
+    await tester.ensureVisible(find.text('Oggi'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Oggi'));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(DayNav.isToday, isTrue);
+    expect(find.text('STAI MODIFICANDO'), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 5));
+  });
+
+  testWidgets('Dal voto si entra nella giornata; seduta di un giorno passato', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    DayNav.reset();
+    final yesterday = addDaysKey(todayKey(), -1);
+    await tester.pumpWidget(_wrap(ScoreDetailScreen(date: yesterday)));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.text('Modifica questa giornata'));
+    await tester.pump();
+    expect(DayNav.key, yesterday);
+    // giorno senza seduta: tocco la card e scelgo quale ho fatto
+    final old = addDaysKey(todayKey(), -3);
+    DayNav.set(old);
+    await tester.pumpWidget(_wrap(const TodayScreen()));
+    await tester.pump(const Duration(milliseconds: 300));
+    final card = find.textContaining('Tocca per registrar');
+    expect(card, findsOneWidget);
+    await tester.tap(card);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Che seduta hai fatto'), findsOneWidget);
+    expect(find.text('Allenamento libero'), findsOneWidget);
+    DayNav.reset();
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 5));
+    // la seduta compilata dopo sta in quel giorno, alle 18, con durata stimata
+    final s = buildSession(app, plan: app.activePlan, day: app.activePlan!.days.first, date: old);
+    expect(s.date, old);
+    expect(DateTime.fromMillisecondsSinceEpoch(s.start).hour, 18);
+    expect(sessionEnd(s) - s.start, const Duration(minutes: 20).inMilliseconds);
+    expect(DateTime.fromMillisecondsSinceEpoch(buildSession(app).start).day, DateTime.now().day);
   });
 
   test('dispositivo di test', () => expect(isDesktop, isTrue));

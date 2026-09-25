@@ -22,7 +22,8 @@ import 'widgets.dart';
 
 /// Avvia (o riprende) una sessione per un giorno della scheda.
 /// [offPlan]: seduta fuori dal giro della scheda (l'alternativa di un giorno giustificato).
-Future<void> startSession(BuildContext context, {PlanDay? day, bool free = false, bool offPlan = false}) async {
+/// [date]: seduta di un giorno passato, compilata a posteriori.
+Future<void> startSession(BuildContext context, {PlanDay? day, bool free = false, bool offPlan = false, String? date}) async {
   final app = context.appRead;
   final active = app.activeSession;
   if (active != null) {
@@ -45,13 +46,51 @@ Future<void> startSession(BuildContext context, {PlanDay? day, bool free = false
     if (active.doneSets == 0) {
       app.deleteSession(active.id);
     } else {
-      app.saveSession(active.copyWith(status: 'done', end: DateTime.now().millisecondsSinceEpoch));
+      app.saveSession(active.copyWith(status: 'done', end: sessionEnd(active)));
     }
   }
   final plan = app.activePlan;
-  final s = buildSession(app, plan: free || offPlan ? null : plan, day: free ? null : day, name: free ? 'Allenamento libero' : null);
+  final s = buildSession(app, plan: free || offPlan ? null : plan, day: free ? null : day, name: free ? 'Allenamento libero' : null, date: date);
   app.saveSession(s);
   if (context.mounted) await push(context, SessionScreen(sessionId: s.id));
+}
+
+/// Seduta di un giorno passato: scegli quale hai fatto e la compili adesso.
+Future<void> logPastSession(BuildContext context, String date, WeekSlot? slot) async {
+  final app = context.appRead;
+  final t = context.tt;
+  final planned = slot?.queued ?? slot?.day;
+  final days = [?planned, ...?app.activePlan?.days.where((x) => x.id != planned?.id)];
+  final pick = await showModalBottomSheet<Object>(
+    context: context,
+    isScrollControlled: true,
+    builder: (c) => SafeArea(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(c).height * 0.8),
+        child: ListView(shrinkWrap: true, padding: const EdgeInsets.fromLTRB(8, 18, 8, 12), children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Text('Che seduta hai fatto ${relDay(fromKey(date)).toLowerCase()}?', style: TS.title(t)),
+          ),
+          for (final x in days)
+            ListTile(
+              leading: Icon(Icons.fitness_center_rounded, color: x == planned ? t.accentInk : t.dim),
+              title: Text(x.name),
+              subtitle: Text(x == planned ? 'In programma · ${x.totalSets} serie' : '${x.totalSets} serie'),
+              onTap: () => Navigator.pop(c, x),
+            ),
+          ListTile(
+            leading: Icon(Icons.add_rounded, color: t.dim),
+            title: const Text('Allenamento libero'),
+            subtitle: const Text('Scegli tu gli esercizi'),
+            onTap: () => Navigator.pop(c, 'free'),
+          ),
+        ]),
+      ),
+    ),
+  );
+  if (pick == null || !context.mounted) return;
+  await startSession(context, day: pick is PlanDay ? pick : null, free: pick == 'free', date: date);
 }
 
 class TrainingScreen extends StatelessWidget {

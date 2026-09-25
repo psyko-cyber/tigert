@@ -20,19 +20,36 @@ import 'diary.dart';
 import 'extra_activity.dart';
 import 'score_detail.dart';
 import 'session.dart';
+import 'session_summary.dart';
 import 'shell.dart';
+import 'training.dart';
 import 'week_report.dart';
 import 'widgets.dart';
 
+/// Oggi, o la giornata scelta con la barra ‹ giorno ›: tutto si modifica come se fosse oggi.
 class TodayScreen extends StatelessWidget {
   const TodayScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) => ValueListenableBuilder<String?>(
+        valueListenable: DayNav.day,
+        builder: (context, _, _) => _DayView(date: DayNav.key),
+      );
+}
+
+class _DayView extends StatelessWidget {
+  final String date;
+  const _DayView({required this.date});
 
   @override
   Widget build(BuildContext context) {
     final app = context.app;
     final t = context.tt;
     final p = app.profile!;
-    final k = todayKey();
+    final k = date;
+    final isToday = k == todayKey();
+    final d = fromKey(k);
+    final rel = relDay(d).toLowerCase();
     final score = app.score(k);
     final tot = app.totals(k);
     final burned = app.habit(k).burned;
@@ -50,9 +67,9 @@ class TodayScreen extends StatelessWidget {
       Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(longDate(DateTime.now()).toUpperCase(), style: TS.label(t)),
+            Text(isToday ? longDate(DateTime.now()).toUpperCase() : 'STAI MODIFICANDO', style: TS.label(t, isToday ? null : t.accentInk)),
             const SizedBox(height: 4),
-            Text(p.name.isEmpty ? greet : '$greet, ${p.name}', style: TS.h1(t)),
+            Text(isToday ? (p.name.isEmpty ? greet : '$greet, ${p.name}') : (rel == 'ieri' ? 'Ieri' : longDate(d)), style: TS.h1(t)),
           ]),
         ),
         Tap(
@@ -65,7 +82,9 @@ class TodayScreen extends StatelessWidget {
           ),
         ),
       ]),
-      if (showUpdate)
+      const SizedBox(height: 12),
+      DayBar(date: k, onChanged: DayNav.set),
+      if (isToday && showUpdate)
         TipCard(
           title: 'Nuova versione ${update.version}',
           child: Row(children: [
@@ -75,7 +94,7 @@ class TodayScreen extends StatelessWidget {
             SmallButton('Scarica', accent: true, onTap: () => launchUrl(Uri.parse(update.downloadUrl ?? update.pageUrl), mode: LaunchMode.externalApplication)),
           ]),
         ),
-      if (adj != null)
+      if (isToday && adj != null)
         TipCard(
           title: 'Suggerimento target',
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -88,7 +107,7 @@ class TodayScreen extends StatelessWidget {
             ]),
           ]),
         ),
-      if (showReportToday(app)) const WeekReportCard(tip: true),
+      if (isToday && showReportToday(app)) const WeekReportCard(tip: true),
       const SizedBox(height: 16),
       // ------------------------------------------------------------ voto
       TCard(
@@ -98,7 +117,7 @@ class TodayScreen extends StatelessWidget {
           const SizedBox(width: 18),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Label('Voto di oggi'),
+              Label('Voto di $rel'),
               const SizedBox(height: 6),
               Text(score.label, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, height: 1.35, color: t.ink)),
               const SizedBox(height: 10),
@@ -112,9 +131,9 @@ class TodayScreen extends StatelessWidget {
         ]),
       ),
       if (score.rest)
-        const NoteBox(
+        NoteBox(
           child: Text.rich(TextSpan(children: [
-            TextSpan(text: 'Oggi è '),
+            TextSpan(text: isToday ? 'Oggi è ' : 'Era '),
             TextSpan(text: 'riposo programmato', style: TextStyle(fontWeight: FontWeight.w700)),
             TextSpan(text: ': l\'allenamento non entra nel voto, il peso passa su nutrizione e abitudini.'),
           ])),
@@ -161,11 +180,11 @@ class TodayScreen extends StatelessWidget {
         ]),
       ),
       const SizedBox(height: 12),
-      const _WorkoutCard(),
+      _WorkoutCard(date: k),
       const SizedBox(height: 12),
-      const _WaterWeightRow(),
+      _WaterWeightRow(date: k),
       const SizedBox(height: 12),
-      const _HabitsCard(),
+      _HabitsCard(date: k),
       const SizedBox(height: 12),
       _MealsCard(date: k),
     ]);
@@ -197,18 +216,34 @@ class _Macro extends StatelessWidget {
 }
 
 class _WorkoutCard extends StatelessWidget {
-  const _WorkoutCard();
+  final String date;
+  const _WorkoutCard({required this.date});
   @override
   Widget build(BuildContext context) {
     final app = context.app;
     final t = context.tt;
-    final active = app.activeSession;
-    final slot = todaySlot(app);
+    final isToday = date == todayKey();
+    final active = isToday ? app.activeSession : null;
+    final slot = isToday ? todaySlot(app) : slotOn(app, fromKey(date));
     final next = nextSlot(app);
+    final past = isToday ? const <Session>[] : (app.sessionsByDate[date] ?? const <Session>[]);
     String title, sub;
     IconData icon;
     VoidCallback onTap = () => ShellNav.go(1);
-    if (active != null) {
+    if (past.isNotEmpty) {
+      // giornata passata: la seduta fatta quel giorno (dal riepilogo si riapre e si modifica)
+      final s = past.last;
+      title = '${s.name} · ${s.isActive ? 'da finire' : 'fatto'}';
+      sub = '${s.doneSets} serie · ${fInt(s.volume)} kg';
+      icon = s.isActive ? Icons.play_arrow_rounded : Icons.check_rounded;
+      onTap = () => push(context, s.isActive ? SessionScreen(sessionId: s.id) : SessionSummaryScreen(sessionId: s.id));
+    } else if (!isToday && slot?.status != SlotStatus.off) {
+      final missed = slot?.status == SlotStatus.missed;
+      title = missed ? '${slot!.queued?.name ?? 'Seduta'} · saltata' : 'Riposo';
+      sub = missed ? 'L\'hai fatta? Tocca per registrarla' : 'Ti sei allenato? Tocca per registrare la seduta';
+      icon = missed ? Icons.history_rounded : Icons.self_improvement_rounded;
+      onTap = () => logPastSession(context, date, slot);
+    } else if (active != null) {
       title = active.name;
       sub = 'In corso · ${active.doneSets}/${active.plannedSets} serie';
       icon = Icons.play_arrow_rounded;
@@ -243,7 +278,7 @@ class _WorkoutCard extends StatelessWidget {
       sub = next?.day == null ? 'Nessuna seduta in programma' : 'Prossima: ${next!.day!.name} · ${giorni[next.date.weekday - 1].toLowerCase()}';
       icon = Icons.self_improvement_rounded;
     }
-    final done = slot?.session != null && !(slot!.session!.isActive);
+    final done = past.isNotEmpty ? !past.last.isActive : slot?.session != null && !(slot!.session!.isActive);
     return TCard(
       onTap: onTap,
       child: Row(children: [
@@ -256,7 +291,7 @@ class _WorkoutCard extends StatelessWidget {
         const SizedBox(width: 14),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Label('Allenamento di oggi'),
+            Label('Allenamento di ${relDay(fromKey(date)).toLowerCase()}'),
             const SizedBox(height: 3),
             Text(title, style: TS.title(t).copyWith(fontSize: 17)),
             const SizedBox(height: 2),
@@ -270,19 +305,22 @@ class _WorkoutCard extends StatelessWidget {
 }
 
 class _WaterWeightRow extends StatelessWidget {
-  const _WaterWeightRow();
+  final String date;
+  const _WaterWeightRow({required this.date});
   @override
   Widget build(BuildContext context) {
     final app = context.app;
     final t = context.tt;
     final p = app.profile!;
-    final k = todayKey();
+    final k = date;
+    final isToday = k == todayKey();
+    final rel = relDay(fromKey(k)).toLowerCase();
     final h = app.habit(k);
     final glasses = (p.waterMl / 250).ceil().clamp(4, 16);
     final full = (h.water / 250).floor();
     final ws = app.weightStats;
     final todayW = app.weightOn(k);
-    final shown = todayW ?? app.latestWeight;
+    final shown = isToday ? todayW ?? app.latestWeight : todayW;
     final wd = ws.weekDelta;
     final trend = ws.trend;
     final toGo = trend == null ? null : p.targetWeight - trend;
@@ -327,9 +365,10 @@ class _WaterWeightRow extends StatelessWidget {
         const SizedBox(height: 6),
         Text(
           [
-            if (wd != null) 'Media 7 gg ${fSigned(wd, 2)} kg',
-            if (todayW == null) 'Non ancora registrato oggi',
-            if (toGo != null && p.goal != Goal.maintain)
+            if (!isToday) todayW == null ? 'Non registrato $rel' : 'Peso di $rel',
+            if (isToday && wd != null) 'Media 7 gg ${fSigned(wd, 2)} kg',
+            if (isToday && todayW == null) 'Non ancora registrato oggi',
+            if (isToday && toGo != null && p.goal != Goal.maintain)
               (p.goal == Goal.bulk ? toGo <= 0.05 : toGo >= -0.05) ? 'Obiettivo raggiunto 🎯' : 'Mancano ${fDec(toGo.abs(), 1)} kg ai ${fKg(p.targetWeight)}',
           ].join('\n'),
           style: TextStyle(fontSize: 12, color: t.dim, height: 1.4),
@@ -339,7 +378,7 @@ class _WaterWeightRow extends StatelessWidget {
         SizedBox(
           width: double.infinity,
           child: SmallButton(todayW == null ? 'Registra peso' : 'Modifica', onTap: () async {
-            final v = await askNumber(context, title: 'Peso di oggi', initial: todayW ?? app.latestWeight, unit: 'kg', decimals: 2, min: 30, max: 300);
+            final v = await askNumber(context, title: 'Peso di $rel', initial: todayW ?? app.latestWeight, unit: 'kg', decimals: 2, min: 30, max: 300);
             if (v != null) app.setWeight(k, double.parse(v.toStringAsFixed(2)));
           }),
         ),
@@ -356,13 +395,16 @@ class _WaterWeightRow extends StatelessWidget {
 }
 
 class _HabitsCard extends StatelessWidget {
-  const _HabitsCard();
+  final String date;
+  const _HabitsCard({required this.date});
   @override
   Widget build(BuildContext context) {
     final app = context.app;
     final t = context.tt;
     final p = app.profile!;
-    final k = todayKey();
+    final k = date;
+    final isToday = k == todayKey();
+    final rel = relDay(fromKey(k)).toLowerCase();
     final h = app.habit(k);
     final items = <Widget>[];
     if (p.habitOn('sleep')) {
@@ -372,7 +414,7 @@ class _HabitsCard extends StatelessWidget {
         value: h.sleep == null ? 'Registra' : fMinutes(h.sleep!),
         ok: h.sleep != null && h.sleep! >= p.sleepMin,
         onTap: () async {
-          final v = await askNumber(context, title: 'Ore di sonno stanotte', initial: h.sleep == null ? null : h.sleep! / 60, unit: 'ore', decimals: 1, max: 16, hint: 'es. 7,5');
+          final v = await askNumber(context, title: isToday ? 'Ore di sonno stanotte' : 'Ore di sonno · $rel', initial: h.sleep == null ? null : h.sleep! / 60, unit: 'ore', decimals: 1, max: 16, hint: 'es. 7,5');
           if (v != null) app.saveHabit(h.copyWith(sleep: (v * 60).round()));
         },
       ));
@@ -384,7 +426,7 @@ class _HabitsCard extends StatelessWidget {
         value: h.steps == null ? 'Registra' : fInt(h.steps!),
         ok: h.steps != null && h.steps! >= p.steps,
         onTap: () async {
-          final v = await askNumber(context, title: 'Passi di oggi', initial: h.steps?.toDouble(), decimals: 0, max: 100000);
+          final v = await askNumber(context, title: 'Passi di $rel', initial: h.steps?.toDouble(), decimals: 0, max: 100000);
           if (v != null) app.saveHabit(h.copyWith(steps: v.round()));
         },
       ));
@@ -440,8 +482,8 @@ class _SupplementRow extends StatelessWidget {
     final app = context.app;
     final t = context.tt;
     final taken = day.took(name);
-    final streak = supplementStreak(app.habitsByDate, name, today());
-    final last = supplementLastDays(app.habitsByDate, name, today());
+    final streak = supplementStreak(app.habitsByDate, name, fromKey(day.date));
+    final last = supplementLastDays(app.habitsByDate, name, fromKey(day.date));
     return Material(
       color: t.surf2,
       borderRadius: BorderRadius.circular(12),
@@ -539,7 +581,7 @@ class _MealsCard extends StatelessWidget {
       onTap: () => push(context, DiaryScreen(date: date)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          const Expanded(child: Label('Pasti di oggi')),
+          Expanded(child: Label('Pasti di ${relDay(fromKey(date)).toLowerCase()}')),
           Text('Diario ›', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: t.accentInk)),
         ]),
         const SizedBox(height: 8),
