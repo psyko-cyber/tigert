@@ -81,6 +81,7 @@ Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=
 Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall add rule name=""{#AppName}"" dir=in action=allow program=""{app}\{#AppExe}"" enable=yes profile=private"; \
   Flags: runhidden; Tasks: firewall; StatusMsg: "Configuro il firewall per la sincronizzazione Wi-Fi..."
 Filename: "{app}\{#AppExe}"; Description: "{cm:RunAfter}"; Flags: nowait postinstall skipifsilent runasoriginaluser
+Filename: "{app}\{#AppExe}"; Flags: nowait runasoriginaluser; Check: RelaunchAfterUpdate
 
 [UninstallRun]
 Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""{#AppName}"""; Flags: runhidden; RunOnceId: "DelFirewall"
@@ -94,6 +95,12 @@ begin
   { Tigert può essere aperto nell'area di notifica: lo chiudo prima di copiare i file }
   Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /IM {#AppExe}', '', SW_HIDE, ewWaitUntilTerminated, Code);
   Sleep(400);
+end;
+
+{ aggiornamento avviato da Tigert (/RELAUNCH=1): alla fine lo riapro }
+function RelaunchAfterUpdate(): Boolean;
+begin
+  Result := WizardSilent() and (ExpandConstant('{param:RELAUNCH|0}') = '1');
 end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;

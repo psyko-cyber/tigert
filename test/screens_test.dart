@@ -53,6 +53,8 @@ import 'package:tigert/ui/settings/sync_settings.dart';
 import 'package:tigert/ui/today.dart';
 import 'package:tigert/ui/shell.dart';
 import 'package:tigert/ui/training.dart';
+import 'package:tigert/ui/update_dialog.dart';
+import 'package:tigert/services/updates.dart';
 import 'package:tigert/ui/volume.dart';
 import 'package:tigert/ui/week_report.dart';
 import 'package:tigert/ui/widgets.dart';
@@ -420,6 +422,26 @@ void main() {
     expect(DateTime.fromMillisecondsSinceEpoch(s.start).hour, 18);
     expect(sessionEnd(s) - s.start, const Duration(minutes: 20).inMilliseconds);
     expect(DateTime.fromMillisecondsSinceEpoch(buildSession(app).start).day, DateTime.now().day);
+  });
+
+  testWidgets('Popup di aggiornamento', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    const u = UpdateInfo('9.9.9', 'https://github.com', 'https://github.com/Tigert-9.9.9.apk', '## Novità\n\n**Barra giorno** in Oggi', null);
+    updateNotice.value = u;
+    await tester.pumpWidget(_wrap(Builder(builder: (context) => Center(child: SmallButton('apri', onTap: () => offerUpdate(context, u))))));
+    await tester.tap(find.text('apri'));
+    await tester.pumpAndSettle();
+    expect(find.text('Tigert 9.9.9 disponibile'), findsOneWidget);
+    expect(find.textContaining('Barra giorno in Oggi'), findsOneWidget, reason: 'note senza markdown');
+    if (_shots) await expectLater(find.byType(MaterialApp), matchesGoldenFile('shots/telefono/Aggiornamento.png'));
+    await tester.tap(find.text('Più tardi'));
+    await tester.pumpAndSettle();
+    expect(updateSnoozed(app.prefs, u), isTrue, reason: 'riproposto dopo 20 ore');
+    expect(updateNotice.value, isNull);
+    app.prefs.dismissedUpdate = null;
+    await tester.pumpWidget(const SizedBox());
   });
 
   test('dispositivo di test', () => expect(isDesktop, isTrue));

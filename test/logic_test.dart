@@ -75,6 +75,16 @@ void main() {
       expect(isNewer('1.0.10', '1.0.9'), isTrue);
     });
 
+    test('aggiornamento: note leggibili e controllo SHA-256', () {
+      expect(plainNotes('## Novità\n\n**Barra giorno**\n- In **Oggi** la barra'), 'Novità\n\nBarra giorno\n- In Oggi la barra');
+      final h = 'a' * 64, e = 'B' * 64;
+      const n = 'Tigert-1.7.1.apk';
+      expect(expectedSha('$h *$n\n$e *Tigert-Setup-1.7.1.exe\n', n), h);
+      expect(expectedSha('$e  Tigert-Setup-1.7.1.exe', 'Tigert-Setup-1.7.1.exe'), e.toLowerCase());
+      expect(expectedSha('$h *$n', 'altro.apk'), isNull);
+      expect(UpdateInfo.fromMap(const UpdateInfo('1.7.1', 'p', 'd', 'n', 's').toMap())!.sumsUrl, 's');
+    });
+
     test('QR di abbinamento', () {
       expect(SyncService.parsePairing('https://example.com'), isNull);
       expect(SyncService.prettyKey('ABCDEFGHJKLM'), 'ABCD-EFGH-JKLM');

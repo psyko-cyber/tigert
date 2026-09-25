@@ -58,6 +58,8 @@ kotlin {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
+    // FileProvider per l'aggiornamento dentro l'app (già incluso dai plugin)
+    implementation("androidx.core:core:1.13.1")
 }
 
 flutter {

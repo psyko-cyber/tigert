@@ -17,6 +17,7 @@ import 'progress.dart';
 import 'session.dart';
 import 'today.dart';
 import 'training.dart';
+import 'update_dialog.dart';
 import 'widgets.dart';
 
 Future<T?> push<T>(BuildContext context, Widget page) => Navigator.of(context).push<T>(MaterialPageRoute(builder: (_) => page));
@@ -96,7 +97,18 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       final away = _away;
       _away = null;
       if (away != null && DateTime.now().difference(away).inMinutes >= 15) DayNav.reset();
+      // il PC resta aperto nel tray per giorni: ricontrolla ogni 6 ore
+      if (DateTime.now().millisecondsSinceEpoch - context.appRead.prefs.lastUpdateCheck > 6 * 3600 * 1000) unawaited(_checkUpdate());
     }
+  }
+
+  /// A ogni avvio: se c'è una versione nuova (e non l'hai rimandata) chiede se aggiornare.
+  Future<void> _checkUpdate() async {
+    final prefs = context.appRead.prefs;
+    final u = await checkForUpdate(prefs, force: true);
+    if (u == null || !mounted || updateSnoozed(prefs, u)) return;
+    updateNotice.value = u;
+    await offerUpdate(context, u);
   }
 
   void _onTab() => setState(() {});
@@ -118,7 +130,8 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       app.prefs.seenBadges = badges(app).where((b) => b.unlocked).map((b) => b.id).toList();
       app.prefs.badgesInitialized = true;
     }
-    unawaited(Future.delayed(const Duration(seconds: 4), () => checkForUpdate(app.prefs)));
+    unawaited(cleanUpdates());
+    unawaited(_checkUpdate());
   }
 
   void _checkBadges(AppState app) {

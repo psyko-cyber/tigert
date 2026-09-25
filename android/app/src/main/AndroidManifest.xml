@@ -14,6 +14,8 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <!-- schermo acceso durante l'allenamento -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- aggiornamento dentro l'app: installa l'APK scaricato sopra la versione attuale -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <application
         android:label="Tigert"
@@ -51,6 +53,17 @@
             </intent-filter>
         </receiver>
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ActionBroadcastReceiver" />
+
+        <!-- APK degli aggiornamenti (cache dell'app) passato all'installer -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.updates"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/update_paths" />
+        </provider>
 
         <meta-data
             android:name="flutterEmbedding"

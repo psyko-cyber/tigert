@@ -95,6 +95,8 @@ class LocalPrefs extends ChangeNotifier {
   set availableUpdate(Map<String, dynamic>? v) => set('update', v);
   String? get dismissedUpdate => get<String>('dismissedUpdate');
   set dismissedUpdate(String? v) => set('dismissedUpdate', v);
+  int get updateLaterAt => get<int>('updateLaterAt') ?? 0;
+  set updateLaterAt(int v) => set('updateLaterAt', v);
 
   List<String> get seenBadges => (get<List>('seenBadges') ?? const []).cast<String>();
   set seenBadges(List<String> v) => set('seenBadges', v);

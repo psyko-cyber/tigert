@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../core/fmt.dart';
 import '../core/ids.dart';
@@ -23,6 +22,7 @@ import 'settings/reminders_settings.dart';
 import 'settings/sync_settings.dart';
 import 'shell.dart';
 import 'training.dart';
+import 'update_dialog.dart';
 import 'widgets.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -171,8 +171,8 @@ class ProfileScreen extends StatelessWidget {
           if (u == null) {
             toast(context, 'Hai già l\'ultima versione ($appVersion)');
           } else {
-            final go = await confirm(context, title: 'Tigert ${u.version}', body: u.notes.isEmpty ? 'È disponibile una nuova versione.' : u.notes, ok: 'Scarica');
-            if (go) launchUrl(Uri.parse(u.downloadUrl ?? u.pageUrl), mode: LaunchMode.externalApplication);
+            updateNotice.value = u;
+            await offerUpdate(context, u);
           }
         },
       ),

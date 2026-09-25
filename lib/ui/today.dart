@@ -1,7 +1,6 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../core/fmt.dart';
 import '../core/theme.dart';
@@ -23,6 +22,7 @@ import 'session.dart';
 import 'session_summary.dart';
 import 'shell.dart';
 import 'training.dart';
+import 'update_dialog.dart';
 import 'week_report.dart';
 import 'widgets.dart';
 
@@ -59,8 +59,6 @@ class _DayView extends StatelessWidget {
     final over = kcalOver(net, p.kcal, phase);
     final hour = DateTime.now().hour;
     final greet = hour < 12 ? 'Buongiorno' : (hour < 18 ? 'Ciao' : 'Buonasera');
-    final update = UpdateInfo.fromMap(app.prefs.availableUpdate);
-    final showUpdate = update != null && isNewer(update.version, '0') && app.prefs.dismissedUpdate != update.version;
     final adj = p.autoAdjust ? null : checkAdjustment(p, app.weightStats);
 
     return PageBody(children: [
@@ -84,15 +82,21 @@ class _DayView extends StatelessWidget {
       ]),
       const SizedBox(height: 12),
       DayBar(date: k, onChanged: DayNav.set),
-      if (isToday && showUpdate)
-        TipCard(
-          title: 'Nuova versione ${update.version}',
-          child: Row(children: [
-            Expanded(child: Text('È disponibile un aggiornamento di Tigert.', style: TS.soft(t))),
-            SmallButton('Più tardi', onTap: () => app.prefs.dismissedUpdate = update.version),
-            const SizedBox(width: 8),
-            SmallButton('Scarica', accent: true, onTap: () => launchUrl(Uri.parse(update.downloadUrl ?? update.pageUrl), mode: LaunchMode.externalApplication)),
-          ]),
+      // aggiornamento non installato (download annullato o installer chiuso): si riprova da qui
+      if (isToday)
+        ValueListenableBuilder<UpdateInfo?>(
+          valueListenable: updateNotice,
+          builder: (context, u, _) => u == null
+              ? const SizedBox.shrink()
+              : TipCard(
+                  title: 'Nuova versione ${u.version}',
+                  child: Row(children: [
+                    Expanded(child: Text('È disponibile un aggiornamento di Tigert.', style: TS.soft(t))),
+                    SmallButton('Più tardi', onTap: () => snoozeUpdate(app.prefs, u)),
+                    const SizedBox(width: 8),
+                    SmallButton('Aggiorna', accent: true, onTap: () => offerUpdate(context, u, ask: false)),
+                  ]),
+                ),
         ),
       if (isToday && adj != null)
         TipCard(

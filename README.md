@@ -52,7 +52,7 @@ Prima di importare vedi l'abbinamento di ogni esercizio Hevy a quello di Tigert 
 I dati restano sui tuoi dispositivi. Escono solo:
 - le ricerche e i codici a barre verso Open Food Facts;
 - le foto che scegli di analizzare, verso Google Gemini (solo con la chiave API);
-- il controllo aggiornamenti verso GitHub;
+- il controllo aggiornamenti verso GitHub (a ogni avvio; con "Aggiorna" l'app scarica la nuova versione da GitHub e la installa sopra quella attuale, i dati restano);
 - l'import da Hevy (solo quando lo avvii tu, la chiave non viene salvata).
 
 La chiave API di Gemini resta sul dispositivo e non viene sincronizzata.
