@@ -81,7 +81,8 @@ Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=
 Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall add rule name=""{#AppName}"" dir=in action=allow program=""{app}\{#AppExe}"" enable=yes profile=private"; \
   Flags: runhidden; Tasks: firewall; StatusMsg: "Configuro il firewall per la sincronizzazione Wi-Fi..."
 Filename: "{app}\{#AppExe}"; Description: "{cm:RunAfter}"; Flags: nowait postinstall skipifsilent runasoriginaluser
-Filename: "{app}\{#AppExe}"; Flags: nowait runasoriginaluser; Check: RelaunchAfterUpdate
+; riaperto tramite explorer: parte come utente normale anche se il setup gira come amministratore
+Filename: "{win}\explorer.exe"; Parameters: """{app}\{#AppExe}"""; Flags: nowait; Check: RelaunchAfterUpdate
 
 [UninstallRun]
 Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""{#AppName}"""; Flags: runhidden; RunOnceId: "DelFirewall"
