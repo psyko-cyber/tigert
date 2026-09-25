@@ -6,10 +6,14 @@ import '../core/fmt.dart';
 import '../core/theme.dart';
 import '../data/app_state.dart';
 import '../data/models.dart';
+import '../logic/training.dart';
+import '../logic/volume.dart';
 import '../logic/week_report.dart';
+import 'help.dart';
 import 'settings/home_gym_settings.dart';
 import 'shell.dart';
 import 'training.dart';
+import 'volume.dart';
 import 'widgets.dart';
 
 String weekRange(DateTime mon) {
@@ -23,28 +27,43 @@ Color statusColor(BuildContext context, MuscleStatus s) => switch (s) {
       _ => TC.danger,
     };
 
-/// Report della settimana: percentuale per muscolo, cosa sistemare e seduta a casa.
-class WeekReportScreen extends StatefulWidget {
+/// Muscoli: la settimana (percentuale per muscolo, cosa sistemare, seduta a casa)
+/// e la scheda (volume previsto). [planId]: dall'editor apre la vista Scheda.
+class MusclesScreen extends StatefulWidget {
   final DateTime? monday;
-  const WeekReportScreen({super.key, this.monday});
+  final String? planId;
+  const MusclesScreen({super.key, this.monday, this.planId});
   @override
-  State<WeekReportScreen> createState() => _WeekReportScreenState();
+  State<MusclesScreen> createState() => _MusclesScreenState();
 }
 
-class _WeekReportScreenState extends State<WeekReportScreen> {
+class _MusclesScreenState extends State<MusclesScreen> {
   late DateTime mon = mondayOf(widget.monday ?? DateTime.now());
+  late bool planView = widget.planId != null;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => SubPage(
+        title: 'Muscoli',
+        actions: const [Padding(padding: EdgeInsets.only(right: 10), child: HelpDot(helpEffective))],
+        body: PageBody(children: [
+          Row(children: [
+            PillChip('Settimana', selected: !planView, onTap: () => setState(() => planView = false)),
+            const SizedBox(width: 8),
+            PillChip('Scheda', selected: planView, onTap: () => setState(() => planView = true)),
+          ]),
+          const SizedBox(height: 8),
+          if (planView) VolumeView(planId: widget.planId) else ..._week(context),
+        ]),
+      );
+
+  List<Widget> _week(BuildContext context) {
     final app = context.app;
     final t = context.tt;
     final r = weekReport(app, mon);
     final isLast = !mon.isBefore(mondayOf(today()));
     final lagging = r.lagging;
     final gym = app.profile!.home;
-    return SubPage(
-      title: 'Report settimanale',
-      body: PageBody(children: [
+    return [
         Row(children: [
           IconButton(
             onPressed: () => setState(() => mon = mon.subtract(const Duration(days: 7))),
@@ -118,13 +137,7 @@ class _WeekReportScreenState extends State<WeekReportScreen> {
               ),
             ),
         ],
-        NoteBox(
-          text: 'Conta le serie efficaci delle sedute fatte da lunedì a domenica${r.current ? ', più quelle ancora in programma' : ''}: '
-              'le serie a fine seduta, sotto RPE 8 o in dropset valgono meno, i multiarticolari danno mezza serie ai muscoli secondari. '
-              'Da 80% a 220% (8-22 serie) va bene, sotto è poco, sopra è difficile recuperare.',
-        ),
-      ]),
-    );
+    ];
   }
 }
 
@@ -202,50 +215,112 @@ class HomeSessionCard extends StatelessWidget {
   }
 }
 
-/// Card compatta del report (Allena e Oggi): i muscoli indietro e un tocco per aprirlo.
+/// Card unica dei muscoli (Allena e Progressi): serie della settimana,
+/// muscoli rimasti indietro e avviso se la scheda ne prevede poche.
+class MusclesCard extends StatelessWidget {
+  const MusclesCard({super.key});
+  @override
+  Widget build(BuildContext context) {
+    final app = context.app;
+    final t = context.tt;
+    final r = weekReport(app, DateTime.now());
+    final vol = weekVolume(app);
+    final plan = app.activePlan;
+    final pv = plan == null || plan.days.isEmpty ? const <String, MuscleVolume>{} : planVolume(app, plan);
+    final low = [
+      for (final m in mainMuscles)
+        if (pv.isNotEmpty && (pv[m]?.effective ?? 0) < minEffective) m.toLowerCase(),
+    ];
+    return TCard(
+      margin: const EdgeInsets.only(bottom: 14),
+      onTap: () => push(context, const MusclesScreen()),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Expanded(child: Label('Muscoli della settimana')),
+          const HelpDot(helpEffective),
+          const SizedBox(width: 4),
+          Text('Apri →', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: t.accentInk)),
+        ]),
+        const SizedBox(height: 8),
+        Row(children: [
+          _Stat('${vol.done}', 'serie fatte'),
+          _Stat('${vol.planned}', 'previste'),
+          _Stat('${vol.prs}', 'record', accent: vol.prs > 0),
+        ]),
+        const SizedBox(height: 12),
+        if (r.lagging.isEmpty) Text(r.summary, style: TS.soft(t, 13)) else _LaggingChips(r.lagging),
+        if (low.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Padding(padding: EdgeInsets.only(top: 2), child: Icon(Icons.info_outline_rounded, size: 16, color: TC.warn)),
+            const SizedBox(width: 8),
+            Expanded(child: Text('La scheda prevede poche serie per ${_join(low)}.', style: TS.soft(t, 13))),
+          ]),
+        ],
+      ]),
+    );
+  }
+}
+
+String _join(List<String> l) => l.length <= 1 ? l.join() : '${l.take(l.length - 1).join(', ')} e ${l.last}';
+
+class _Stat extends StatelessWidget {
+  final String v;
+  final String k;
+  final bool accent;
+  const _Stat(this.v, this.k, {this.accent = false});
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tt;
+    return Expanded(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(v, style: TS.num(t, 22, color: accent ? t.accentInk : null)),
+        Text(k, style: TS.muted(t, 11)),
+      ]),
+    );
+  }
+}
+
+/// I muscoli indietro come chip colorate (percentuale della settimana).
+class _LaggingChips extends StatelessWidget {
+  final List<MuscleWeek> lagging;
+  const _LaggingChips(this.lagging);
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tt;
+    return Wrap(spacing: 6, runSpacing: 6, children: [
+      for (final m in lagging.take(4))
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(color: t.surf2, borderRadius: BorderRadius.circular(99)),
+          child: Text('${m.muscle} ${m.pctTotal}%',
+              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: statusColor(context, m.status), fontFeatures: tabular)),
+        ),
+    ]);
+  }
+}
+
+/// Nel weekend in Oggi: il report della settimana come suggerimento.
 class WeekReportCard extends StatelessWidget {
-  final bool tip; // stile TipCard (in Oggi, nel weekend)
-  const WeekReportCard({super.key, this.tip = false});
+  const WeekReportCard({super.key});
   @override
   Widget build(BuildContext context) {
     final app = context.app;
     final t = context.tt;
     final r = weekReport(app, DateTime.now());
     final lagging = r.lagging;
-    final body = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      if (!tip)
-        Row(children: [
-          const Expanded(child: Label('Report della settimana')),
-          Text('Apri →', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: t.accentInk)),
+    return GestureDetector(
+      onTap: () => push(context, const MusclesScreen()),
+      child: TipCard(
+        title: 'Report della settimana',
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          if (lagging.isEmpty) Text(r.summary, style: TS.soft(t, 13)) else _LaggingChips(lagging),
+          if (lagging.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(r.home != null ? 'C\'è una seduta a casa pronta per recuperare.' : 'Guarda come bilanciare la settimana.', style: TS.soft(t, 13)),
+          ],
         ]),
-      if (!tip) const SizedBox(height: 8),
-      if (lagging.isEmpty)
-        Text(r.summary, style: TS.soft(t, 13))
-      else
-        Wrap(spacing: 6, runSpacing: 6, children: [
-          for (final m in lagging.take(4))
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              decoration: BoxDecoration(color: t.surf2, borderRadius: BorderRadius.circular(99)),
-              child: Text('${m.muscle} ${m.pctTotal}%',
-                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: statusColor(context, m.status), fontFeatures: tabular)),
-            ),
-        ]),
-      if (tip && lagging.isNotEmpty) ...[
-        const SizedBox(height: 10),
-        Text(r.home != null ? 'C\'è una seduta a casa pronta per recuperare.' : 'Guarda come bilanciare la settimana.', style: TS.soft(t, 13)),
-      ],
-    ]);
-    if (tip) {
-      return GestureDetector(
-        onTap: () => push(context, const WeekReportScreen()),
-        child: TipCard(title: 'Report della settimana', child: body),
-      );
-    }
-    return TCard(
-      margin: const EdgeInsets.only(bottom: 14),
-      onTap: () => push(context, const WeekReportScreen()),
-      child: body,
+      ),
     );
   }
 }

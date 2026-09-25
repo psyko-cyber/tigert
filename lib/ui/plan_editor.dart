@@ -12,6 +12,7 @@ import 'plans.dart';
 import 'reorder.dart';
 import 'shell.dart';
 import 'volume.dart';
+import 'week_report.dart';
 import 'widgets.dart';
 
 /// "1A + 3×8-10 rip · RPE 9 · 2'30" rec"
@@ -134,7 +135,7 @@ class PlanEditorScreen extends StatelessWidget {
           Align(
             alignment: Alignment.centerLeft,
             child: TextButton(
-              onPressed: () => push(context, VolumeScreen(planId: plan.id)),
+              onPressed: () => push(context, MusclesScreen(planId: plan.id)),
               child: Text('Come si calcola →', style: TextStyle(color: t.accentInk, fontWeight: FontWeight.w700)),
             ),
           ),

@@ -14,6 +14,7 @@ import 'achievements_screen.dart';
 import 'charts.dart';
 import 'shell.dart';
 import 'week_report.dart';
+import 'help.dart';
 import 'widgets.dart';
 
 class ProgressScreen extends StatefulWidget {
@@ -128,7 +129,10 @@ class _ProgressScreenState extends State<ProgressScreen> {
       const SizedBox(height: 12),
       TCard(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Label(tdee == null ? 'TDEE reale' : 'TDEE reale · ${tdee.days} giorni di dati'),
+          Row(children: [
+            Expanded(child: Label(tdee == null ? 'TDEE reale' : 'TDEE reale · ${tdee.days} giorni di dati')),
+            const HelpDot(helpTdee),
+          ]),
           const SizedBox(height: 4),
           if (tdee == null) ...[
             Text('In arrivo', style: TS.num(t, 28, color: t.dim)),
@@ -152,8 +156,8 @@ class _ProgressScreenState extends State<ProgressScreen> {
         ]),
       ),
       const SizedBox(height: 12),
-      const WeekReportCard(),
-      SectionLabel('Record per esercizio'),
+      const MusclesCard(),
+      const SectionLabel('Record per esercizio', trailing: HelpDot(help1rm)),
       if (bests.isEmpty) Text('Completa qualche sessione: qui vedrai i tuoi massimali stimati e come crescono.', style: TS.muted(t)),
       for (final b in bests.take(12))
         Padding(
@@ -348,7 +352,14 @@ class WeightHistoryScreen extends StatelessWidget {
         for (var i = 0; i < list.length; i++)
           Padding(
             padding: const EdgeInsets.only(bottom: 6),
-            child: RowTile(
+            child: SwipeToDelete(
+              id: list[i].date,
+              onDelete: () {
+                final w = list[i];
+                app.deleteWeight(w.date);
+                toast(context, 'Pesata eliminata', action: 'Annulla', onAction: () => app.setWeight(w.date, w.kg));
+              },
+              child: RowTile(
               title: '${fKg(list[i].kg)} kg',
               subtitle: longDate(fromKey(list[i].date)),
               trailing: i + 1 < list.length
@@ -364,8 +375,9 @@ class WeightHistoryScreen extends StatelessWidget {
                 }
               },
             ),
+            ),
           ),
-        if (list.isNotEmpty) Text('Tocca per modificare, tieni premuto per eliminare.', style: TS.muted(t, 12)),
+        if (list.isNotEmpty) Text('Tocca per modificare, scorri a sinistra per eliminare.', style: TS.muted(t, 12)),
       ]),
     );
   }

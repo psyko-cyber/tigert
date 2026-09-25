@@ -111,7 +111,7 @@ class _DayView extends StatelessWidget {
             ]),
           ]),
         ),
-      if (isToday && showReportToday(app)) const WeekReportCard(tip: true),
+      if (isToday && showReportToday(app)) const WeekReportCard(),
       const SizedBox(height: 16),
       // ------------------------------------------------------------ voto
       TCard(

@@ -16,7 +16,6 @@ import 'plans.dart';
 import 'session.dart';
 import 'session_summary.dart';
 import 'shell.dart';
-import 'volume.dart';
 import 'week_report.dart';
 import 'widgets.dart';
 
@@ -114,7 +113,6 @@ class TrainingScreen extends StatelessWidget {
       ]);
     }
     final slots = weekSchedule(app);
-    final vol = weekVolume(app);
     final next = nextSlot(app);
     final active = app.activeSession;
     // oggi giustificato per un dolore: seduta alternativa al posto di quella prevista
@@ -175,21 +173,8 @@ class TrainingScreen extends StatelessWidget {
               margin: const EdgeInsets.only(bottom: 12),
               text: '${moveAdviceText(a, s.day!.name, s.date)} Per cambiare giorno tocca ${giorni[fromKey(s.movedFrom!).weekday - 1].toLowerCase()}.',
             ),
-      TCard(
-        margin: const EdgeInsets.only(top: 4),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Label('Volume settimanale'),
-          const SizedBox(height: 10),
-          Row(children: [
-            _Kpi('${vol.done}', 'serie fatte'),
-            _Kpi('${vol.planned}', 'previste'),
-            _Kpi('${vol.prs}', 'record', accent: vol.prs > 0),
-          ]),
-        ]),
-      ),
-      const SizedBox(height: 14),
-      const VolumeCard(),
-      const WeekReportCard(),
+      const SizedBox(height: 4),
+      const MusclesCard(),
       if (alt != null)
         AlternativeCard(slot: off!, alt: alt)
       else if (active == null && next?.day != null)
@@ -232,23 +217,6 @@ class TrainingScreen extends StatelessWidget {
           ),
         ),
     ]);
-  }
-}
-
-class _Kpi extends StatelessWidget {
-  final String v;
-  final String k;
-  final bool accent;
-  const _Kpi(this.v, this.k, {this.accent = false});
-  @override
-  Widget build(BuildContext context) {
-    final t = context.tt;
-    return Expanded(
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(v, style: TS.num(t, 22, color: accent ? t.accentInk : null)),
-        Text(k, style: TS.muted(t, 11)),
-      ]),
-    );
   }
 }
 

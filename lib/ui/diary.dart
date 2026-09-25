@@ -137,6 +137,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
           ),
           const SizedBox(height: 10),
         ],
+        if (entries.isNotEmpty) Text('Tocca un alimento per modificarlo, scorri a sinistra per eliminarlo.', style: TS.muted(t, 12)),
       ]),
     );
   }
@@ -165,7 +166,13 @@ class _MealCard extends StatelessWidget {
         ]),
         const SizedBox(height: 6),
         for (final e in entries)
-          Tap(
+          SwipeToDelete(
+            id: e.id,
+            onDelete: () {
+              app.deleteEntry(e.id);
+              toast(context, '${e.name} eliminato', action: 'Annulla', onAction: () => app.addEntry(e));
+            },
+            child: Tap(
             radius: 8,
             onTap: () => onEdit(e),
             onLongPress: () async {
@@ -195,6 +202,7 @@ class _MealCard extends StatelessWidget {
                 const SizedBox(width: 6),
               ]),
             ),
+          ),
           ),
         const SizedBox(height: 4),
         Row(children: [

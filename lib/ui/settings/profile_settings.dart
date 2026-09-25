@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../core/fmt.dart';
 import '../../core/theme.dart';
 import '../../data/app_state.dart';
+import '../help.dart';
 import '../../data/models.dart';
 import '../../logic/nutrition.dart';
 import '../widgets.dart';
@@ -170,7 +171,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
         ],
         if (goal == Goal.bulk) ...[
           const SizedBox(height: 14),
-          const Label('Fase'),
+          const Row(children: [Label('Fase'), HelpDot(helpPhase)]),
           const SizedBox(height: 8),
           Row(children: [
             Expanded(child: _choice(Phase.lean.label, !heavy, () => setState(() => heavy = false))),

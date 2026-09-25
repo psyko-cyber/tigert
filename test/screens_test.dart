@@ -52,10 +52,10 @@ import 'package:tigert/ui/settings/reminders_settings.dart';
 import 'package:tigert/ui/settings/sync_settings.dart';
 import 'package:tigert/ui/today.dart';
 import 'package:tigert/ui/shell.dart';
+import 'package:tigert/ui/help.dart';
 import 'package:tigert/ui/training.dart';
 import 'package:tigert/ui/update_dialog.dart';
 import 'package:tigert/services/updates.dart';
-import 'package:tigert/ui/volume.dart';
 import 'package:tigert/ui/week_report.dart';
 import 'package:tigert/ui/widgets.dart';
 
@@ -241,10 +241,10 @@ void main() {
     'Editor scheda': () => PlanEditorScreen(planId: app.activePlan!.id),
     'Editor scheda ciclo': () => const PlanEditorScreen(planId: 'cyc'),
     'Le mie schede': () => const PlansScreen(),
-    'Volume': () => const VolumeScreen(),
-    'Report settimanale': () => const WeekReportScreen(),
-    'Report settimana scorsa': () => WeekReportScreen(monday: today().subtract(const Duration(days: 7))),
-    'Card report': () => const PageBody(children: [WeekReportCard(), WeekReportCard(tip: true)]),
+    'Muscoli scheda': () => MusclesScreen(planId: app.activePlan!.id),
+    'Muscoli': () => const MusclesScreen(),
+    'Muscoli settimana scorsa': () => MusclesScreen(monday: today().subtract(const Duration(days: 7))),
+    'Card muscoli': () => const PageBody(children: [MusclesCard(), WeekReportCard()]),
     'Attrezzatura a casa': () => const HomeGymScreen(),
     'Riordina': () => ReorderScreen(entries: [for (final e in app.session(activeSessionId)!.items) ReorderEntry(e.ex, e.name, '${e.plannedSets} serie')]),
     'Quantità bevanda': () => FoodAmountScreen(food: app.catalog.foods.firstWhere((f) => fold(f.name).startsWith('spremuta')), date: todayKey(), meal: 'colazione'),
@@ -422,6 +422,35 @@ void main() {
     expect(DateTime.fromMillisecondsSinceEpoch(s.start).hour, 18);
     expect(sessionEnd(s) - s.start, const Duration(minutes: 20).inMilliseconds);
     expect(DateTime.fromMillisecondsSinceEpoch(buildSession(app).start).day, DateTime.now().day);
+  });
+
+  testWidgets('Diario: scorri per eliminare e Annulla; spiegazioni col ?', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final k = todayKey();
+    final before = app.entries(k).length;
+    await tester.pumpWidget(_wrap(DiaryScreen(date: k)));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.drag(find.textContaining('Spremuta'), const Offset(-600, 0));
+    await tester.pumpAndSettle();
+    expect(app.entries(k).length, before - 1);
+    await tester.tap(find.text('Annulla'));
+    await tester.pump();
+    expect(app.entries(k).length, before, reason: 'Annulla rimette l\'alimento');
+    await tester.pumpWidget(_wrap(const TrainingScreen()));
+    await tester.pump(const Duration(milliseconds: 300));
+    final dot = find.byType(HelpDot).first;
+    await tester.ensureVisible(dot);
+    await tester.pumpAndSettle();
+    await tester.tap(dot);
+    await tester.pumpAndSettle();
+    expect(find.text('Serie efficaci'), findsOneWidget);
+    await tester.tap(find.text('Ho capito'));
+    await tester.pumpAndSettle();
+    expect(find.text('Ho capito'), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 5));
   });
 
   testWidgets('Popup di aggiornamento', (tester) async {

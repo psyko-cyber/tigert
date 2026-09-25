@@ -343,6 +343,27 @@ class DayBar extends StatelessWidget {
   }
 }
 
+/// Riga che si elimina scorrendo verso sinistra (fondo rosso con il cestino).
+class SwipeToDelete extends StatelessWidget {
+  final String id;
+  final VoidCallback onDelete;
+  final Widget child;
+  const SwipeToDelete({super.key, required this.id, required this.onDelete, required this.child});
+  @override
+  Widget build(BuildContext context) => Dismissible(
+        key: ValueKey('del-$id'),
+        direction: DismissDirection.endToStart,
+        onDismissed: (_) => onDelete(),
+        background: Container(
+          alignment: Alignment.centerRight,
+          padding: const EdgeInsets.only(right: 16),
+          decoration: BoxDecoration(color: TC.danger.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
+          child: const Icon(Icons.delete_outline_rounded, color: TC.danger),
+        ),
+        child: child,
+      );
+}
+
 /// Card "suggerimento" con bordo lime.
 class TipCard extends StatelessWidget {
   final String title;

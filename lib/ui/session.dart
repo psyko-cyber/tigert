@@ -13,6 +13,7 @@ import '../data/models.dart';
 import '../logic/training.dart';
 import '../services/services.dart';
 import 'exercise_picker.dart';
+import 'help.dart';
 import 'reorder.dart';
 import 'session_summary.dart';
 import 'shell.dart';
@@ -356,7 +357,7 @@ class _SessionScreenState extends State<SessionScreen> {
                 SizedBox(width: 34, child: Text('#', style: TS.label(t))),
                 if (!cardio) Expanded(child: Text('KG', style: TS.label(t))),
                 Expanded(child: Text((ex?.repsLabel ?? 'rip').toUpperCase(), style: TS.label(t))),
-                Expanded(child: Text('RPE', style: TS.label(t))),
+                Expanded(child: Row(children: [Text('RPE', style: TS.label(t)), const HelpDot(helpRpe)])),
                 SizedBox(width: 72, child: Text('SCORSA', textAlign: TextAlign.right, style: TS.label(t))),
               ]),
             ),
