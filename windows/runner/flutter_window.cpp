@@ -7,7 +7,13 @@
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
     : project_(project) {}
 
-FlutterWindow::~FlutterWindow() {}
+FlutterWindow::~FlutterWindow() {
+  // Uscendo con window_manager destroy() (solo PostQuitMessage) il ciclo dei
+  // messaggi finisce con la finestra ancora aperta e OnDestroy non è passato.
+  // La vista va tolta qui: così il puntatore è già nullo quando, mentre viene
+  // distrutta, la finestra riceve altri messaggi (prima: crash in flutter_windows.dll).
+  flutter_controller_ = nullptr;
+}
 
 bool FlutterWindow::OnCreate() {
   if (!Win32Window::OnCreate()) {
@@ -62,7 +68,9 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
 
   switch (message) {
     case WM_FONTCHANGE:
-      flutter_controller_->engine()->ReloadSystemFonts();
+      if (flutter_controller_) {
+        flutter_controller_->engine()->ReloadSystemFonts();
+      }
       break;
   }
 
