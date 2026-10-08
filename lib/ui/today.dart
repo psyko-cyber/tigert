@@ -417,6 +417,7 @@ class _HabitsCard extends StatelessWidget {
         label: 'Sonno',
         value: h.sleep == null ? 'Registra' : fMinutes(h.sleep!),
         ok: h.sleep != null && h.sleep! >= p.sleepMin,
+        auto: h.isAuto('sleep'),
         onTap: () async {
           final v = await askNumber(context, title: isToday ? 'Ore di sonno stanotte' : 'Ore di sonno · $rel', initial: h.sleep == null ? null : h.sleep! / 60, unit: 'ore', decimals: 1, max: 16, hint: 'es. 7,5');
           if (v != null) app.saveHabit(h.copyWith(sleep: (v * 60).round()));
@@ -429,6 +430,7 @@ class _HabitsCard extends StatelessWidget {
         label: 'Passi',
         value: h.steps == null ? 'Registra' : fInt(h.steps!),
         ok: h.steps != null && h.steps! >= p.steps,
+        auto: h.isAuto('steps'),
         onTap: () async {
           final v = await askNumber(context, title: 'Passi di $rel', initial: h.steps?.toDouble(), decimals: 0, max: 100000);
           if (v != null) app.saveHabit(h.copyWith(steps: v.round()));
@@ -541,7 +543,8 @@ class _HabitTile extends StatelessWidget {
   final String value;
   final bool ok;
   final VoidCallback onTap;
-  const _HabitTile({required this.icon, required this.label, required this.value, required this.ok, required this.onTap});
+  final bool auto; // valore letto dall'orologio
+  const _HabitTile({required this.icon, required this.label, required this.value, required this.ok, required this.onTap, this.auto = false});
   @override
   Widget build(BuildContext context) {
     final t = context.tt;
@@ -562,6 +565,7 @@ class _HabitTile extends StatelessWidget {
                 Text(value, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: t.ink, fontFeatures: tabular)),
               ]),
             ),
+            if (auto) Icon(Icons.watch_rounded, size: 14, color: t.dim),
           ]),
         ),
       ),

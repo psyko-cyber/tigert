@@ -82,6 +82,15 @@ class LocalPrefs extends ChangeNotifier {
   Map<String, dynamic> get peers => (get<Map>('peers') ?? {}).cast<String, dynamic>();
   set peers(Map<String, dynamic> v) => set('peers', v);
 
+  // ---------------------------------------------------------------- orologio (Health Connect)
+  bool get watchOn => get<bool>('watchOn') ?? false;
+  set watchOn(bool v) => set('watchOn', v);
+  int get watchLast => get<int>('watchLast') ?? 0;
+  set watchLast(int v) => set('watchLast', v);
+  /// Allenamenti dell'orologio già diventati attività extra.
+  List<String> get watchSeen => (get<List>('watchSeen') ?? const []).cast<String>();
+  set watchSeen(List<String> v) => set('watchSeen', v);
+
   // ---------------------------------------------------------------- desktop
   bool get trayEnabled => get<bool>('tray') ?? true;
   set trayEnabled(bool v) => set('tray', v);

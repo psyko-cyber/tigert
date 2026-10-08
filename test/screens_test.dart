@@ -21,6 +21,8 @@ import 'package:tigert/services/gemini.dart';
 import 'package:tigert/services/notifications.dart';
 import 'package:tigert/services/services.dart';
 import 'package:tigert/services/sync.dart';
+import 'package:tigert/services/watch.dart';
+import 'package:tigert/logic/watch.dart';
 import 'package:tigert/ui/achievements_screen.dart';
 import 'package:tigert/ui/add_hub.dart';
 import 'package:tigert/ui/barcode.dart';
@@ -50,6 +52,7 @@ import 'package:tigert/ui/settings/misc_settings.dart';
 import 'package:tigert/ui/settings/profile_settings.dart';
 import 'package:tigert/ui/settings/reminders_settings.dart';
 import 'package:tigert/ui/settings/sync_settings.dart';
+import 'package:tigert/ui/settings/watch_settings.dart';
 import 'package:tigert/ui/today.dart';
 import 'package:tigert/ui/shell.dart';
 import 'package:tigert/ui/help.dart';
@@ -94,6 +97,7 @@ Future<void> _seed() async {
   Services.sync = SyncService(app);
   Services.notif = NotificationService(app);
   Services.drive = DriveBackup(app);
+  Services.watch = WatchService(app, _FakeWatch());
   DriveBackup.debugAvailable = true;
 
   final plan = templateByKey('ulpp').toPlan();
@@ -187,6 +191,20 @@ const _estimate = '{"tigert":1,"piatto":"Pasta al pomodoro con pollo","affidabil
     '{"nome":"Petto di pollo","grammi":120,"grammi_min":100,"grammi_max":150,"kcal_100g":110,"proteine_100g":23,"carboidrati_100g":0,"grassi_100g":1.2}],'
     '"note":"Olio stimato"}';
 
+/// Health Connect finto: permessi dati tranne il peso, nessun dato nuovo.
+class _FakeWatch implements WatchSource {
+  @override
+  Future<String> status() async => 'ok';
+  @override
+  Future<void> install() async {}
+  @override
+  Future<Map<String, bool>> permissions() async => const {'steps': true, 'sleep': true, 'workouts': true, 'weight': false};
+  @override
+  Future<void> request() async {}
+  @override
+  Future<List<WatchDay>> read(DateTime from, DateTime to) async => const [];
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -275,6 +293,15 @@ void main() {
       app.prefs.set('driveLast', DateTime.now().millisecondsSinceEpoch);
       app.prefs.set('driveLastSize', 1840000);
       return const DriveSettingsScreen();
+    },
+    'Orologio': () {
+      app.prefs.watchOn = false;
+      return const WatchSettingsScreen();
+    },
+    'Orologio collegato': () {
+      app.prefs.watchOn = true;
+      app.prefs.watchLast = DateTime.now().millisecondsSinceEpoch;
+      return const WatchSettingsScreen();
     },
     'Informazioni': () => const AboutScreen(),
     'Importa da Hevy': () => const HevyImportScreen(),

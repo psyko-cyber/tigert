@@ -13,6 +13,7 @@ const sports = <(String, String, double)>[
   ('tennis', 'Tennis', 7.3),
   ('basket', 'Basket', 6.5),
   ('corsa', 'Corsa', 9.0),
+  ('camminata', 'Camminata', 3.8),
   ('bici', 'Bici', 7.5),
   ('nuoto', 'Nuoto', 6.0),
   ('escursione', 'Escursione', 6.0),

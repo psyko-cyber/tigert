@@ -26,7 +26,8 @@ android {
 
     defaultConfig {
         applicationId = "it.tigert.app"
-        minSdk = 24
+        // 26 (Android 8): richiesto da Health Connect
+        minSdk = 26
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName

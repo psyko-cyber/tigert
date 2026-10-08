@@ -945,7 +945,7 @@ Future<double?> askNumber(
   );
 }
 
-Future<String?> askText(BuildContext context, {required String title, String initial = '', String? hint, String ok = 'Salva'}) {
+Future<String?> askText(BuildContext context, {required String title, String initial = '', String? hint, String ok = 'Salva', int lines = 1}) {
   final ctl = TextEditingController(text: initial);
   final t = context.tt;
   return showDialog<String>(
@@ -955,6 +955,8 @@ Future<String?> askText(BuildContext context, {required String title, String ini
       content: TextField(
         controller: ctl,
         autofocus: true,
+        minLines: 1,
+        maxLines: lines,
         textCapitalization: TextCapitalization.sentences,
         decoration: InputDecoration(hintText: hint),
         onSubmitted: (v) => Navigator.pop(c, v.trim()),

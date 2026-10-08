@@ -42,6 +42,7 @@ class _TigertAppState extends State<TigertApp> {
   void _onResume() {
     _checkDay();
     Services.notif.cancelRestEnd();
+    Services.watch?.sync();
     if (Services.sync.paired) {
       Services.sync.startAuto();
       Services.sync.syncNow(quiet: true);

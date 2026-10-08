@@ -15,6 +15,7 @@ import 'services/notifications.dart';
 import 'services/resume_guard.dart';
 import 'services/services.dart';
 import 'services/sync.dart';
+import 'services/watch.dart';
 
 Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -71,6 +72,11 @@ Future<void> main(List<String> args) async {
   }
   notif.reschedule(delay: const Duration(seconds: 3));
   if (DriveBackup.available) drive.startAuto();
+  // orologio: solo sul telefono, i dati arrivano al PC con la sincronizzazione
+  final watch = WatchService(app, isAndroid ? HealthConnectSource() : null);
+  Services.watch = watch;
+  watch.startAuto();
+  unawaited(watch.sync());
 
   runApp(TigertApp(app: app));
 }

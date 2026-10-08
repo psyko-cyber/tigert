@@ -3,6 +3,7 @@ import 'desktop.dart';
 import 'drive_backup.dart';
 import 'notifications.dart';
 import 'sync.dart';
+import 'watch.dart';
 
 /// Servizi globali creati all'avvio.
 class Services {
@@ -11,4 +12,5 @@ class Services {
   static late NotificationService notif;
   static late DriveBackup drive;
   static DesktopService? desktop;
+  static WatchService? watch;
 }

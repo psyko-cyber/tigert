@@ -42,6 +42,34 @@ class PhotoEstimate {
   double get kcalMax => items.fold(0.0, (a, b) => a + b.kcalMax);
 }
 
+/// Il piatto stimato come ricetta: un ingrediente per ogni alimento riconosciuto.
+Recipe recipeFromEstimate(PhotoEstimate est, String name, {required String id}) => Recipe(
+      id: id,
+      name: name,
+      items: [for (final it in est.items) RecipeItem('', it.name, it.g, it.kcal100, it.p100, it.c100, it.f100)],
+      note: 'Dalla stima di una foto',
+    );
+
+/// Il piatto stimato come alimento unico: valori per 100 g di piatto pronto
+/// e una porzione grande quanto quella della foto.
+Food foodFromEstimate(PhotoEstimate est, String name, {required String id}) {
+  final g = est.items.fold(0.0, (a, b) => a + b.g);
+  final m = est.total.scale(g <= 0 ? 0 : 100 / g);
+  double r(double v) => (v * 10).round() / 10;
+  return Food(
+    id: id,
+    name: name,
+    cat: 'Piatti pronti',
+    kcal: m.kcal.roundToDouble(),
+    p: r(m.p),
+    c: r(m.c),
+    f: r(m.f),
+    portions: [if (g > 0) Portion('porzione', g.roundToDouble())],
+    src: 'photo',
+    ml: false,
+  );
+}
+
 String geminiPrompt([String extra = '']) {
   final e = extra.trim();
   return '''Sei un nutrizionista esperto. Analizza la foto del piatto che ti allego e stima cosa contiene.

@@ -39,7 +39,7 @@ class Rec {
 class Store extends ChangeNotifier {
   static const synced = [
     'profile', 'foods', 'fav', 'recipes', 'log', 'weights', 'habits',
-    'plans', 'exercises', 'sessions', 'photos', 'events',
+    'plans', 'exercises', 'exnotes', 'sessions', 'photos', 'events',
   ];
 
   late Directory root;

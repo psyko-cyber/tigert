@@ -61,7 +61,7 @@ class HabitsSettingsScreen extends StatelessWidget {
           final v = await askNumber(context, title: 'Obiettivo sonno', initial: p.sleepMin / 60, unit: 'ore', decimals: 1, min: 4, max: 12);
           if (v != null) app.saveProfile(p.copyWith(sleepMin: (v * 60 / 15).round() * 15));
         }),
-        item('steps', 'Passi', 'Inseriti a mano la sera', target: fInt(p.steps), onTarget: () async {
+        item('steps', 'Passi', app.prefs.watchOn ? 'Letti dall\'orologio' : 'Inseriti a mano la sera',target: fInt(p.steps), onTarget: () async {
           final v = await askNumber(context, title: 'Obiettivo passi', initial: p.steps.toDouble(), decimals: 0, min: 1000, max: 40000);
           if (v != null) app.saveProfile(p.copyWith(steps: (v / 500).round() * 500));
         }),

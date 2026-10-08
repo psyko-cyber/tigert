@@ -20,6 +20,7 @@ import 'settings/misc_settings.dart';
 import 'settings/profile_settings.dart';
 import 'settings/reminders_settings.dart';
 import 'settings/sync_settings.dart';
+import 'settings/watch_settings.dart';
 import 'shell.dart';
 import 'training.dart';
 import 'update_dialog.dart';
@@ -152,6 +153,11 @@ class ProfileScreen extends StatelessWidget {
           return _Setting(Icons.wifi_rounded, 'Sincronizzazione Wi-Fi', sub, () => push(context, const SyncSettingsScreen()));
         },
       ),
+      if (Services.watch?.available == true)
+        ListenableBuilder(
+          listenable: Services.watch!,
+          builder: (context, _) => _Setting(Icons.watch_rounded, 'Orologio e salute', watchSummary(Services.watch!), () => push(context, const WatchSettingsScreen())),
+        ),
       if (DriveBackup.available)
         ListenableBuilder(
           listenable: Services.drive,

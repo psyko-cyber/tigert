@@ -824,9 +824,11 @@ class ExtraActivity {
   final int min;
   final int lvl; // 0 leggera, 1 normale, 2 intensa
   final int kcal;
-  const ExtraActivity({required this.kind, required this.name, required this.min, this.lvl = 1, required this.kcal});
-  Map<String, dynamic> toMap() => {'k': kind, 'n': name, 'min': min, 'lvl': lvl, 'kcal': kcal};
-  factory ExtraActivity.fromMap(Map m) => ExtraActivity(kind: _s(m['k']), name: _s(m['n']), min: _i(m['min']), lvl: _i(m['lvl'], 1), kcal: _i(m['kcal']));
+  final String? src; // id dell'allenamento letto dall'orologio (null = inserita a mano)
+  const ExtraActivity({required this.kind, required this.name, required this.min, this.lvl = 1, required this.kcal, this.src});
+  Map<String, dynamic> toMap() => {'k': kind, 'n': name, 'min': min, 'lvl': lvl, 'kcal': kcal, if (src != null) 'w': src};
+  factory ExtraActivity.fromMap(Map m) =>
+      ExtraActivity(kind: _s(m['k']), name: _s(m['n']), min: _i(m['min']), lvl: _i(m['lvl'], 1), kcal: _i(m['kcal']), src: m['w'] as String?);
 }
 
 class HabitDay {
@@ -845,6 +847,9 @@ class HabitDay {
   // giorno di allenamento in più: qui arriva la seduta rimandata dal giorno [moved]
   final String? moved;
   final List<ExtraActivity> extra;
+  // valori arrivati dall'orologio ('steps', 'sleep'): si aggiornano da soli
+  // finché non li scrivi a mano
+  final List<String> auto;
   const HabitDay({
     required this.date,
     this.water = 0,
@@ -858,6 +863,7 @@ class HabitDay {
     this.moveTo,
     this.moved,
     this.extra = const [],
+    this.auto = const [],
   });
   Map<String, dynamic> toMap() => {
         'date': date,
@@ -872,6 +878,7 @@ class HabitDay {
         if (off.isNotEmpty && moveTo != null) 'moveTo': moveTo,
         if (moved != null) 'moved': moved,
         if (extra.isNotEmpty) 'extra': [for (final e in extra) e.toMap()],
+        if (auto.isNotEmpty) 'auto': auto,
       };
   factory HabitDay.fromMap(Map m) => HabitDay(
         date: _s(m['date']),
@@ -886,7 +893,10 @@ class HabitDay {
         moveTo: m['moveTo'] as String?,
         moved: m['moved'] as String?,
         extra: [for (final e in (m['extra'] as List?) ?? const []) ExtraActivity.fromMap(e as Map)],
+        auto: ((m['auto'] as List?) ?? const []).map((e) => e.toString()).toList(),
       );
+
+  /// Modifica a mano: passi o sonno scritti qui non sono più "dell'orologio".
   HabitDay copyWith({int? water, int? sleep, int? steps, int? alcohol, bool clearAlcohol = false, List<String>? supp, List<ExtraActivity>? extra}) => HabitDay(
         date: date,
         water: water ?? this.water,
@@ -900,11 +910,33 @@ class HabitDay {
         moveTo: moveTo,
         moved: moved,
         extra: extra ?? this.extra,
+        auto: [
+          for (final k in auto)
+            if (!(k == 'steps' && steps != null) && !(k == 'sleep' && sleep != null)) k,
+        ],
+      );
+
+  /// Valori letti dall'orologio: restano segnati come automatici.
+  HabitDay withWatch({int? steps, int? sleep, List<ExtraActivity>? extra}) => HabitDay(
+        date: date,
+        water: water,
+        sleep: sleep ?? this.sleep,
+        steps: steps ?? this.steps,
+        alcohol: alcohol,
+        supp: supp,
+        off: off,
+        offDay: offDay,
+        avoid: avoid,
+        moveTo: moveTo,
+        moved: moved,
+        extra: extra ?? this.extra,
+        auto: {...auto, if (steps != null) 'steps', if (sleep != null) 'sleep'}.toList(),
       );
   HabitDay withOff(String reason, {String? dayId, List<String> avoid = const [], String? moveTo}) => HabitDay(
-      date: date, water: water, sleep: sleep, steps: steps, alcohol: alcohol, supp: supp, off: reason, offDay: dayId, avoid: avoid, moveTo: moveTo, moved: moved, extra: extra);
+      date: date, water: water, sleep: sleep, steps: steps, alcohol: alcohol, supp: supp, off: reason, offDay: dayId, avoid: avoid, moveTo: moveTo, moved: moved, extra: extra, auto: auto);
   HabitDay withMoved(String? from) => HabitDay(
-      date: date, water: water, sleep: sleep, steps: steps, alcohol: alcohol, supp: supp, off: off, offDay: offDay, avoid: avoid, moveTo: moveTo, moved: from, extra: extra);
+      date: date, water: water, sleep: sleep, steps: steps, alcohol: alcohol, supp: supp, off: off, offDay: offDay, avoid: avoid, moveTo: moveTo, moved: from, extra: extra, auto: auto);
+  bool isAuto(String k) => auto.contains(k);
   bool get isOff => off.isNotEmpty;
 
   /// Seduta rimandata a un altro giorno (non saltata: resta nel giro).

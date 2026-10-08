@@ -9,6 +9,7 @@ Diario, peso, allenamenti, foto e impostazioni restano sui tuoi dispositivi. La 
 ## Servizi esterni, solo se li usi
 
 - **Google Drive** (backup dal PC): con il tuo consenso Tigert usa l'autorizzazione `drive.appdata`, cioè una cartella nascosta del tuo Drive riservata all'app. Tigert vede solo i file che crea lì (backup e foto) e nessun altro file del tuo Drive. I backup vanno direttamente dal tuo PC al tuo Drive: lo sviluppatore non li riceve e non li vede. Puoi scollegare Drive in qualsiasi momento dalle impostazioni di Tigert o da https://myaccount.google.com/permissions.
+- **Health Connect** (orologio, solo Android): con il tuo consenso Tigert legge passi, sonno, peso e allenamenti (con calorie e distanza) che l'app del tuo orologio scrive in Health Connect. Li usa solo per compilare la tua giornata, restano sul telefono e sul tuo PC abbinato, e Tigert non scrive nulla in Health Connect. Puoi togliere i permessi in qualsiasi momento da Health Connect o scollegare l'orologio dalle impostazioni di Tigert.
 - **Gemini** (stima dei piatti dalle foto): la foto viene inviata a Google con la tua chiave API.
 - **Open Food Facts**: il codice a barre, per cercare il prodotto.
 - **Hevy**: i tuoi allenamenti, letti con la tua chiave API.

@@ -241,6 +241,7 @@ class _EstimateScreenState extends State<EstimateScreen> {
   late String meal = widget.meal;
   bool keepPhoto = true;
   bool saving = false;
+  bool dishSaved = false;
 
   Future<void> _addMissing() async {
     final picked = await push<PickedFood>(context, FoodSearchScreen(date: widget.date, meal: meal, pickMode: true));
@@ -257,6 +258,44 @@ class _EstimateScreenState extends State<EstimateScreen> {
           f100: f.f,
           confirmed: true,
         )));
+  }
+
+  /// Tiene il piatto per le prossime volte: tra le ricette (ingredienti separati)
+  /// o come alimento unico nel catalogo.
+  Future<void> _saveDish() async {
+    final app = context.appRead;
+    final where = await showModalBottomSheet<String>(
+      context: context,
+      builder: (_) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          ListTile(
+            leading: const Icon(Icons.menu_book_rounded),
+            title: const Text('Nelle mie ricette'),
+            subtitle: const Text('Con gli ingredienti separati: puoi cambiarli e scegliere le porzioni'),
+            onTap: () => Navigator.pop(context, 'recipe'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.restaurant_rounded),
+            title: const Text('Nel catalogo'),
+            subtitle: const Text('Un alimento unico tra i tuoi: lo cerchi per nome e lo pesi'),
+            onTap: () => Navigator.pop(context, 'food'),
+          ),
+        ]),
+      ),
+    );
+    if (where == null || !mounted) return;
+    final name = await askText(context, title: 'Nome del piatto', initial: est.dish);
+    if (name == null || name.isEmpty || !mounted) return;
+    if (where == 'recipe') {
+      app.saveRecipe(recipeFromEstimate(est, name, id: newId()));
+    } else {
+      app.saveFood(foodFromEstimate(est, name, id: newId()));
+    }
+    setState(() {
+      est.dish = name;
+      dishSaved = true;
+    });
+    toast(context, where == 'recipe' ? 'Salvato nelle ricette' : 'Salvato nel catalogo');
   }
 
   Future<void> _save() async {
@@ -356,6 +395,12 @@ class _EstimateScreenState extends State<EstimateScreen> {
         for (var i = 0; i < est.items.length; i++) _itemCard(i),
         GhostButton('+ Manca un alimento', onTap: _addMissing),
         if (est.note.trim().isNotEmpty) NoteBox(icon: Icons.info_outline_rounded, text: est.note),
+        const SectionLabel('Lo mangi spesso?'),
+        GhostButton(
+          dishSaved ? 'Piatto salvato' : 'Salva questo piatto',
+          icon: dishSaved ? Icons.check_rounded : Icons.bookmark_add_outlined,
+          onTap: est.items.isEmpty ? null : _saveDish,
+        ),
         const SectionLabel('Pasto'),
         MealChips(selected: meal, onChanged: (v) => setState(() => meal = v)),
         if (widget.photo != null)

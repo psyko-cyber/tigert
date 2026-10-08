@@ -232,6 +232,13 @@ class _SessionScreenState extends State<SessionScreen> {
     _save(s.copyWith(items: [...s.items, item], current: s.items.length));
   }
 
+  /// Nota fissa dell'esercizio (sellino, presa...): la ritrovi a ogni seduta.
+  Future<void> _editNote(SessionEx e, String current) async {
+    final v = await askText(context, title: 'Nota · ${e.name}', initial: current, hint: 'es. sellino 4, schienale 2, presa larga', lines: 4);
+    if (v == null || v == current) return;
+    app.setExNote(e.ex, v);
+  }
+
   @override
   Widget build(BuildContext context) {
     final a = context.app;
@@ -262,6 +269,8 @@ class _SessionScreenState extends State<SessionScreen> {
     final prev = a.lastPerformance(e.ex, beforeTs: s.start);
     final sug = suggestFor(a, e.target, beforeTs: s.start);
     final live = liveTip(a, e);
+    // finché non la scrivi vale quella della scheda (es. importata da Hevy)
+    final note = a.exNote(e.ex) ?? e.target.note;
     final nextIdx = e.sets.indexWhere((x) => !x.done);
     final left = _left;
     final restDefault = e.target.rest > 0 ? e.target.rest : 90;
@@ -345,6 +354,7 @@ class _SessionScreenState extends State<SessionScreen> {
             TextSpan(text: sug.text),
           ])),
         ),
+        _ExNote(note: note, onTap: () => _editNote(e, note)),
         const SizedBox(height: 12),
         // ---------------------------------------------------- tabella serie
         TCard(
@@ -444,6 +454,44 @@ class _SessionScreenState extends State<SessionScreen> {
 String _prevLabel((Session, SessionEx)? prev, List<SetLog> sets, int i, Exercise? ex) {
   final p = prev == null ? null : matchingPrevSet(prev.$2.sets, sets, i);
   return p == null ? '—' : prevLabel(p, ex);
+}
+
+/// Nota dell'esercizio sotto il nome: tocca per scriverla o cambiarla.
+class _ExNote extends StatelessWidget {
+  final String note;
+  final VoidCallback onTap;
+  const _ExNote({required this.note, required this.onTap});
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tt;
+    final empty = note.isEmpty;
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Tap(
+        radius: 12,
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: empty ? null : t.accentTint,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: empty ? t.line : t.accentLine),
+          ),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Icon(empty ? Icons.add_rounded : Icons.sticky_note_2_outlined, size: 16, color: empty ? t.dim : t.accentInk),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                empty ? 'Aggiungi una nota (sellino, presa, altezza...)' : note,
+                style: TextStyle(fontSize: 13, height: 1.4, color: empty ? t.dim : t.ink, fontWeight: empty ? FontWeight.w400 : FontWeight.w600),
+              ),
+            ),
+            if (!empty) Icon(Icons.edit_rounded, size: 14, color: t.dim),
+          ]),
+        ),
+      ),
+    );
+  }
 }
 
 /// Cerchietto con 1, A o D (nel menu del tipo di serie).

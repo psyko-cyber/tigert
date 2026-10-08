@@ -407,6 +407,16 @@ class AppState extends ChangeNotifier {
 
   void saveExercise(Exercise e) => store.put('exercises', e.id, e.toMap());
 
+  /// Nota fissa dell'esercizio (es. "sellino 4"): vale in ogni scheda e seduta.
+  Map<String, String> get exNotes => _memo('exNotes', () {
+        return {for (final m in store.all('exnotes')) m['id'] as String: (m['t'] as String?) ?? ''};
+      });
+
+  /// null se non è mai stata scritta (vuota = cancellata apposta).
+  String? exNote(String exId) => exNotes[exId];
+
+  void setExNote(String exId, String text) => store.put('exnotes', exId, {'t': text.trim()});
+
   // ================================================================ schede
 
   List<Plan> get plans => _memo('plans', () => store.all('plans').map(Plan.fromMap).toList());
