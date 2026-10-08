@@ -76,8 +76,10 @@ Future<void> _download(BuildContext context, UpdateInfo u) async {
   try {
     final f = await downloadUpdate(u, onProgress: (v) => progress.value = v, cancelled: () => cancelled);
     nav.pop();
-    await installUpdate(f);
-    if (isWindows && context.mounted) toast(context, 'Conferma la richiesta di Windows: Tigert si chiude e si riapre aggiornato');
+    final ok = await installUpdate(f);
+    if (isWindows && context.mounted) {
+      toast(context, ok ? 'Installo la ${u.version}: tra poco Tigert si chiude e si riapre aggiornato' : 'Aggiornamento annullato: la richiesta di Windows non è stata confermata');
+    }
   } catch (_) {
     nav.pop();
     if (cancelled || !context.mounted) return;

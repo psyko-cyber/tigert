@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../core/ids.dart';
 import '../data/local_prefs.dart';
+import 'win_shell.dart';
 
 class UpdateInfo {
   final String version;
@@ -116,17 +117,14 @@ const _channel = MethodChannel('tigert/update');
 /// Installa sopra la versione attuale (stessa firma: i dati restano).
 /// Android apre l'installer di sistema; Windows lancia il setup silenzioso con
 /// la richiesta di Windows: chiude Tigert e lo riapre aggiornato (/RELAUNCH=1).
-Future<void> installUpdate(File f) async {
+/// Ritorna false se su Windows la richiesta è stata rifiutata.
+Future<bool> installUpdate(File f) async {
   if (isAndroid) {
     await _channel.invokeMethod('installApk', f.path);
   } else if (isWindows) {
-    final p = f.path.replaceAll("'", "''");
-    await Process.start(
-      'powershell.exe',
-      ['-NoProfile', '-WindowStyle', 'Hidden', '-Command', "Start-Process -FilePath '$p' -ArgumentList '/SILENT','/NORESTART','/RELAUNCH=1' -Verb RunAs"],
-      mode: ProcessStartMode.detached,
-    );
+    return shellExecute('runas', f.path, '/SILENT /NORESTART /RELAUNCH=1');
   }
+  return true;
 }
 
 /// true se [a] è più recente di [b] ("1.2.0" > "1.1.9").
