@@ -40,9 +40,9 @@ class _DayOffSheetState extends State<DayOffSheet> {
   /// Giorni in cui spostarla: dal giorno dopo (o da oggi, per i giorni passati) per una settimana.
   List<DateTime> get options {
     final t = today();
-    final next = slot.date.add(const Duration(days: 1));
+    final next = addDays(slot.date, 1);
     final from = next.isBefore(t) ? t : next;
-    return [for (var i = 0; i < 7; i++) dateOnly(from.add(Duration(days: i)))];
+    return [for (var i = 0; i < 7; i++) dateOnly(addDays(from, i))];
   }
 
   void _reason(String k) => setState(() {

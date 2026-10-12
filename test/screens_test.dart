@@ -26,6 +26,7 @@ import 'package:tigert/logic/watch.dart';
 import 'package:tigert/ui/achievements_screen.dart';
 import 'package:tigert/ui/add_hub.dart';
 import 'package:tigert/ui/barcode.dart';
+import 'package:tigert/ui/consult.dart';
 import 'package:tigert/ui/day_off.dart';
 import 'package:tigert/ui/diary.dart';
 import 'package:tigert/ui/exercise_picker.dart';
@@ -262,7 +263,20 @@ void main() {
     'Muscoli scheda': () => MusclesScreen(planId: app.activePlan!.id),
     'Muscoli': () => const MusclesScreen(),
     'Muscoli settimana scorsa': () => MusclesScreen(monday: today().subtract(const Duration(days: 7))),
-    'Card muscoli': () => const PageBody(children: [MusclesCard(), WeekReportCard()]),
+    'Card muscoli': () => const PageBody(children: [MusclesCard(), BalanceCard()]),
+    'Consulenza': () {
+      app.store.remove('consult', todayKey());
+      return const ConsultScreen();
+    },
+    'Consulenza con priorità': () {
+      app.saveConsult(Consult(id: todayKey(), reply: 'Va bene il diario.\n\nPRIORITÀ\n1) ...', items: const [
+        'Pesati lunedì, giovedì e sabato al mattino',
+        'Gambe: carichi al 70%, due ripetizioni di margine',
+        'Nel weekend 300 kcal in più e una fonte di proteine',
+      ], done: const [0]));
+      return const ConsultScreen();
+    },
+    'Oggi con priorità': () => const TodayScreen(),
     'Attrezzatura a casa': () => const HomeGymScreen(),
     'Riordina': () => ReorderScreen(entries: [for (final e in app.session(activeSessionId)!.items) ReorderEntry(e.ex, e.name, '${e.plannedSets} serie')]),
     'Quantità bevanda': () => FoodAmountScreen(food: app.catalog.foods.firstWhere((f) => fold(f.name).startsWith('spremuta')), date: todayKey(), meal: 'colazione'),

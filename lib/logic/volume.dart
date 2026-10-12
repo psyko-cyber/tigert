@@ -108,7 +108,7 @@ Map<String, MuscleVolume> planVolume(AppState s, Plan plan) {
 
 /// Volume davvero fatto negli ultimi [days] giorni, riportato a una settimana.
 Map<String, MuscleVolume> recentVolume(AppState s, {int days = 14}) {
-  final from = dayKey(today().subtract(Duration(days: days - 1)));
+  final from = dayKey(addDays(today(), -(days - 1)));
   final sessions = [
     for (final ss in s.doneSessions)
       if (ss.date.compareTo(from) >= 0)

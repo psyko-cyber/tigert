@@ -67,7 +67,7 @@ class WeekReport {
   final HomeSession? home;
   const WeekReport(this.monday, this.muscles, this.done, this.left, this.tips, this.home);
 
-  DateTime get sunday => monday.add(const Duration(days: 6));
+  DateTime get sunday => addDays(monday, 6);
   bool get closed => today().isAfter(sunday);
   bool get current => !closed && !today().isBefore(monday);
 
@@ -103,7 +103,7 @@ WeekReport weekReport(AppState s, DateTime ref) {
 }
 
 WeekReport _weekReport(AppState s, DateTime mon) {
-  final end = mon.add(const Duration(days: 7));
+  final end = addDays(mon, 7);
   final t = today();
   bool inWeek(DateTime d) => !d.isBefore(mon) && d.isBefore(end);
   final sessions = [for (final ss in s.doneSessions) if (inWeek(fromKey(ss.date))) ss];
@@ -287,6 +287,3 @@ HomeSession? homeSession(AppState s, HomeGym g, List<MuscleWeek> lagging, {requi
     });
   return HomeSession(PlanDay(id: id, name: 'A casa · ${joinIt(muscles)}', items: order), muscles);
 }
-
-/// Testo della notifica del sabato.
-String reportNotificationBody(AppState s, DateTime day) => weekReport(s, day).summary;

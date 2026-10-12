@@ -215,7 +215,7 @@ class WatchService extends ChangeNotifier {
     notifyListeners();
     var n = 0;
     try {
-      final read = await s.read(dateOnly(now).subtract(const Duration(days: days - 1)), now);
+      final read = await s.read(addDays(dateOnly(now), -(days - 1)), now);
       n = applyWatch(app, read);
       app.prefs.watchLast = now.millisecondsSinceEpoch;
       error = null;

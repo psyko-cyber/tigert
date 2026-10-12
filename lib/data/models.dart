@@ -1240,3 +1240,22 @@ class ProgressPhoto {
   factory ProgressPhoto.fromMap(Map m) =>
       ProgressPhoto(id: _s(m['id']), date: _s(m['date']), blob: _s(m['blob']), pose: _s(m['pose'], 'fronte'), note: _s(m['note']));
 }
+
+// =================================================================== consulenza
+
+/// Una consulenza: la risposta incollata e le sue priorità, da spuntare in settimana.
+class Consult {
+  final String id; // il giorno in cui l'hai incollata
+  final String reply;
+  final List<String> items;
+  final List<int> done; // indici delle priorità fatte
+  const Consult({required this.id, this.reply = '', this.items = const [], this.done = const []});
+  Map<String, dynamic> toMap() => {'reply': reply, 'items': items, 'done': done};
+  factory Consult.fromMap(Map m) => Consult(
+        id: _s(m['id']),
+        reply: _s(m['reply']),
+        items: ((m['items'] as List?) ?? const []).map((e) => e.toString()).toList(),
+        done: ((m['done'] as List?) ?? const []).map((e) => _i(e)).toList(),
+      );
+  Consult toggle(int i) => Consult(id: id, reply: reply, items: items, done: done.contains(i) ? done.where((x) => x != i).toList() : [...done, i]);
+}

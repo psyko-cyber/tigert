@@ -511,6 +511,16 @@ class AppState extends ChangeNotifier {
 
   void deletePhoto(String id) => store.remove('photos', id);
 
+  // ================================================================ consulenza
+
+  /// L'ultima consulenza incollata: le sue priorità valgono per la settimana.
+  Consult? get lastConsult => _memo('lastConsult', () {
+        final l = store.all('consult').map(Consult.fromMap).toList()..sort((a, b) => a.id.compareTo(b.id));
+        return l.isEmpty ? null : l.last;
+      });
+
+  void saveConsult(Consult c) => store.put('consult', c.id, c.toMap());
+
   // ================================================================ voto
 
   DayScore score(String date) => _memo('score:$date', () => computeScore(this, date));
@@ -524,7 +534,7 @@ class AppState extends ChangeNotifier {
     final e = dateOnly(end ?? DateTime.now());
     final vs = <double>[];
     for (var i = 0; i < 7; i++) {
-      final k = dayKey(e.subtract(Duration(days: i)));
+      final k = dayKey(addDays(e, -i));
       if (!activeDates.contains(k)) continue;
       vs.add(score(k).v);
     }

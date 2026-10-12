@@ -10,7 +10,7 @@ import 'widgets.dart';
 
 /// Negli ultimi 14 giorni c'è almeno una settimana di allenamenti?
 bool hasRecentTraining(AppState app) {
-  final from = dayKey(today().subtract(const Duration(days: 13)));
+  final from = dayKey(addDays(today(), -13));
   final n = app.doneSessions.where((s) => s.date.compareTo(from) >= 0).length;
   return n >= (app.profile?.trainingDays.length ?? 3).clamp(2, 7);
 }

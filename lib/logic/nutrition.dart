@@ -68,7 +68,7 @@ class WeightStats {
 
   /// Media degli ultimi [days] giorni fino a [end] incluso.
   double? avg(DateTime end, [int days = 7]) {
-    final from = end.subtract(Duration(days: days - 1));
+    final from = addDays(end, -(days - 1));
     final xs = entries.where((e) {
       final d = fromKey(e.date);
       return !d.isBefore(dateOnly(from)) && !d.isAfter(dateOnly(end));
@@ -86,7 +86,7 @@ class WeightStats {
   /// Pendenza in kg/settimana (regressione lineare) negli ultimi [days] giorni.
   double? slopePerWeek({int days = 21, DateTime? end}) {
     final e = dateOnly(end ?? DateTime.now());
-    final start = e.subtract(Duration(days: days));
+    final start = addDays(e, -days);
     final pts = entries.where((x) {
       final d = fromKey(x.date);
       return d.isAfter(start) && !d.isAfter(e);
@@ -112,11 +112,40 @@ class WeightStats {
     if (entries.isEmpty) return null;
     final end = fromKey(entries.last.date);
     final a = avg(end);
-    final b = avg(end.subtract(const Duration(days: 7)));
+    final b = avg(addDays(end, -7));
     if (a == null || b == null) return null;
     return a - b;
   }
 }
+
+/// Mattine del promemoria della pesata: tre a settimana bastano per la media.
+const weighDays = [DateTime.monday, DateTime.thursday, DateTime.saturday];
+
+/// Andamento del peso nelle ultime 3 settimane, oppure quante pesate mancano per stimarlo.
+class WeightTrend {
+  final double? slope; // kg/settimana
+  final int missing;
+  const WeightTrend(this.slope, this.missing);
+}
+
+WeightTrend weightTrend(WeightStats w, {DateTime? now}) {
+  final e = dateOnly(now ?? DateTime.now());
+  final slope = w.slopePerWeek(days: 21, end: e);
+  if (slope != null) return WeightTrend(slope, 0);
+  final from = addDays(e, -21);
+  final n = w.entries.where((x) {
+    final d = fromKey(x.date);
+    return d.isAfter(from) && !d.isAfter(e);
+  }).length;
+  return WeightTrend(null, math.max(1, 4 - n));
+}
+
+/// Il ritmo rispetto all'obiettivo, con le stesse soglie dell'adeguamento: parola e se va bene.
+(String, bool) weightVerdict(Profile p, double slope) => switch (p.goal) {
+      Goal.bulk => slope < p.rate * 0.5 ? ('lento', false) : (slope > p.rate * 1.7 && slope > 0.3 ? ('veloce', false) : ('in linea', true)),
+      Goal.cut => slope > -p.rate * 0.5 ? ('lento', false) : (slope < -p.rate * 1.7 && slope < -0.6 ? ('veloce', false) : ('in linea', true)),
+      Goal.maintain => slope.abs() > 0.2 ? (slope > 0 ? 'in salita' : 'in discesa', false) : ('stabile', true),
+    };
 
 // =================================================================== TDEE reale
 
@@ -132,10 +161,10 @@ class TdeeEstimate {
 /// Stima il dispendio reale da calorie registrate e andamento del peso.
 /// Considera solo i giorni "completi" (≥ 900 kcal registrate) degli ultimi 28.
 TdeeEstimate? realTdee({required Map<String, Macro> totalsByDate, required WeightStats weights, DateTime? now}) {
-  final end = dateOnly(now ?? DateTime.now()).subtract(const Duration(days: 1));
+  final end = addDays(dateOnly(now ?? DateTime.now()), -1);
   final intakes = <double>[];
   for (var i = 0; i < 28; i++) {
-    final k = dayKey(end.subtract(Duration(days: i)));
+    final k = dayKey(addDays(end, -i));
     final t = totalsByDate[k];
     if (t != null && t.kcal >= 900) intakes.add(t.kcal);
   }
@@ -149,10 +178,10 @@ TdeeEstimate? realTdee({required Map<String, Macro> totalsByDate, required Weigh
 
 /// Quanti giorni di dati mancano per il TDEE reale.
 int tdeeDaysMissing(Map<String, Macro> totalsByDate, {DateTime? now}) {
-  final end = dateOnly(now ?? DateTime.now()).subtract(const Duration(days: 1));
+  final end = addDays(dateOnly(now ?? DateTime.now()), -1);
   var n = 0;
   for (var i = 0; i < 28; i++) {
-    final t = totalsByDate[dayKey(end.subtract(Duration(days: i)))];
+    final t = totalsByDate[dayKey(addDays(end, -i))];
     if (t != null && t.kcal >= 900) n++;
   }
   return math.max(0, 14 - n);
@@ -225,7 +254,7 @@ List<RampBar> targetRamp(Profile p) {
   final mon = mondayOf(DateTime.now());
   final out = <RampBar>[];
   for (var i = -3; i <= 0; i++) {
-    final wEnd = mon.add(Duration(days: i * 7 + 6));
+    final wEnd = addDays(mon, i * 7 + 6);
     final ref = i == 0 ? today() : wEnd;
     out.add(RampBar(i == 0 ? 'ora' : '${i}s', targetAt(p, ref), false, i == 0));
   }
@@ -258,5 +287,5 @@ DateTime? goalEta(Profile p, double currentKg) {
   if (p.goal == Goal.bulk && diff <= 0) return null;
   if (p.goal == Goal.cut && diff >= 0) return null;
   final weeks = diff.abs() / p.rate;
-  return today().add(Duration(days: (weeks * 7).round()));
+  return addDays(today(), (weeks * 7).round());
 }

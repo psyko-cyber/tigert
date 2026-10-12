@@ -61,7 +61,7 @@ class Alternative {
 Alternative alternativeFor(AppState s, DateTime date, PlanDay skipped, List<String> zones) {
   final day = dateOnly(date);
   final key = dayKey(day);
-  final prevKey = dayKey(day.subtract(const Duration(days: 1)));
+  final prevKey = dayKey(addDays(day, -1));
   final mon = mondayOf(day);
   final avoid = avoidedMuscles(zones);
   String? muscleOf(String exId) => s.exercise(exId)?.muscle;
@@ -205,7 +205,7 @@ MoveAdvice? moveAdvice(AppState s, PlanDay moving, DateTime target, {String? fro
       ];
   (DateTime, List<String>)? worst(DateTime d) {
     (DateTime, List<String>)? out;
-    for (final n in [d.subtract(const Duration(days: 1)), d.add(const Duration(days: 1))]) {
+    for (final n in [addDays(d, -1), addDays(d, 1)]) {
       final c = clash(_musclesOn(s, n, from));
       if (c.isNotEmpty && (out == null || c.length > out.$2.length)) out = (n, c);
     }

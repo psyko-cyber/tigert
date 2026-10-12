@@ -283,7 +283,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       case 2:
         final eta = goal == Goal.maintain || target == null || weight == null
             ? null
-            : today().add(Duration(days: ((target! - weight!).abs() / rate * 7).round()));
+            : addDays(today(), ((target! - weight!).abs() / rate * 7).round());
         return [
           _art(const Icon(Icons.track_changes_rounded, size: 48, color: TC.onAccent)),
           _title('Qual è il tuo obiettivo?'),

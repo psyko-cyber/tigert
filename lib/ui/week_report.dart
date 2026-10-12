@@ -17,7 +17,7 @@ import 'volume.dart';
 import 'widgets.dart';
 
 String weekRange(DateTime mon) {
-  final sun = mon.add(const Duration(days: 6));
+  final sun = addDays(mon, 6);
   return mon.month == sun.month ? '${mon.day}-${sun.day} ${mesi[sun.month - 1]}' : '${shortDate(mon)} - ${shortDate(sun)}';
 }
 
@@ -66,7 +66,7 @@ class _MusclesScreenState extends State<MusclesScreen> {
     return [
         Row(children: [
           IconButton(
-            onPressed: () => setState(() => mon = mon.subtract(const Duration(days: 7))),
+            onPressed: () => setState(() => mon = addDays(mon, -7)),
             icon: const Icon(Icons.chevron_left_rounded),
             tooltip: 'Settimana prima',
           ),
@@ -83,7 +83,7 @@ class _MusclesScreenState extends State<MusclesScreen> {
             ]),
           ),
           IconButton(
-            onPressed: isLast ? null : () => setState(() => mon = mon.add(const Duration(days: 7))),
+            onPressed: isLast ? null : () => setState(() => mon = addDays(mon, 7)),
             icon: const Icon(Icons.chevron_right_rounded),
             tooltip: 'Settimana dopo',
           ),
@@ -300,31 +300,6 @@ class _LaggingChips extends StatelessWidget {
   }
 }
 
-/// Nel weekend in Oggi: il report della settimana come suggerimento.
-class WeekReportCard extends StatelessWidget {
-  const WeekReportCard({super.key});
-  @override
-  Widget build(BuildContext context) {
-    final app = context.app;
-    final t = context.tt;
-    final r = weekReport(app, DateTime.now());
-    final lagging = r.lagging;
-    return GestureDetector(
-      onTap: () => push(context, const MusclesScreen()),
-      child: TipCard(
-        title: 'Report della settimana',
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          if (lagging.isEmpty) Text(r.summary, style: TS.soft(t, 13)) else _LaggingChips(lagging),
-          if (lagging.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Text(r.home != null ? 'C\'è una seduta a casa pronta per recuperare.' : 'Guarda come bilanciare la settimana.', style: TS.soft(t, 13)),
-          ],
-        ]),
-      ),
-    );
-  }
-}
-
-/// In Oggi il report compare dal giorno del report a domenica.
+/// In Oggi il bilancio (ui/consult.dart) compare dal giorno del report a domenica.
 bool showReportToday(AppState app) =>
     DateTime.now().weekday >= reportWeekday && (app.profile?.reminders.reportOn ?? true) && weekReport(app, DateTime.now()).done > 0;

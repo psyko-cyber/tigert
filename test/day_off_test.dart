@@ -131,18 +131,18 @@ void main() {
 
   test('un giorno giustificato della settimana scorsa conta per il giro', () async {
     final app = await newApp([DateTime.now().weekday]);
-    final lastMon = mondayOf(today()).subtract(const Duration(days: 7));
+    final lastMon = addDays(mondayOf(today()), -7);
     app.saveSession(done(lastMon, [('lat-machine', 4)], planId: 'p', dayId: 'A'));
-    app.saveSession(done(lastMon.add(const Duration(days: 2)), [('panca-inclinata', 4)], planId: 'p', dayId: 'B'));
+    app.saveSession(done(addDays(lastMon, 2), [('panca-inclinata', 4)], planId: 'p', dayId: 'B'));
     expect(todaySlot(app)!.day!.id, 'C', reason: 'senza giustificazione toccherebbe a Gambe');
-    app.setDayOff(dayKey(lastMon.add(const Duration(days: 4))), 'dolore', dayId: 'C', avoid: ['Gambe']);
+    app.setDayOff(dayKey(addDays(lastMon, 4)), 'dolore', dayId: 'C', avoid: ['Gambe']);
     expect(todaySlot(app)!.day!.id, 'A');
   });
 
   test('mercoledì rimandata a giovedì, venerdì gambe saltate con la seduta alternativa', () async {
     final app = await newApp(const [1, 3, 5]);
-    final mon = mondayOf(today()).add(const Duration(days: 7)); // settimana prossima
-    DateTime day(int i) => mon.add(Duration(days: i));
+    final mon = addDays(mondayOf(today()), 7); // settimana prossima
+    DateTime day(int i) => addDays(mon, i);
     String k(int i) => dayKey(day(i));
     expect([for (final i in [0, 2, 4]) slotOn(app, day(i))!.day!.id], ['A', 'B', 'C']);
 
@@ -183,33 +183,33 @@ void main() {
 
   test('rimandare a un giorno che ha già una seduta fa slittare le successive', () async {
     final app = await newApp(const [1, 3, 5]);
-    final mon = mondayOf(today()).add(const Duration(days: 7));
-    app.setDayOff(dayKey(mon.add(const Duration(days: 2))), 'impegno', dayId: 'B', moveTo: dayKey(mon.add(const Duration(days: 4))));
-    expect(slotOn(app, mon.add(const Duration(days: 4)))!.day!.id, 'B');
-    expect(slotOn(app, mon.add(const Duration(days: 7)))!.day!.id, 'C');
+    final mon = addDays(mondayOf(today()), 7);
+    app.setDayOff(dayKey(addDays(mon, 2)), 'impegno', dayId: 'B', moveTo: dayKey(addDays(mon, 4)));
+    expect(slotOn(app, addDays(mon, 4))!.day!.id, 'B');
+    expect(slotOn(app, addDays(mon, 7))!.day!.id, 'C');
   });
 
   test('rimandata due volte: la seduta arriva al giorno finale e la coda non salta niente', () async {
     final app = await newApp(const [1, 3, 5]);
-    final mon = mondayOf(today()).add(const Duration(days: 7));
-    String k(int i) => dayKey(mon.add(Duration(days: i)));
+    final mon = addDays(mondayOf(today()), 7);
+    String k(int i) => dayKey(addDays(mon, i));
     app.setDayOff(k(2), 'impegno', dayId: 'B', moveTo: k(3));
-    final thu = slotOn(app, mon.add(const Duration(days: 3)))!;
+    final thu = slotOn(app, addDays(mon, 3))!;
     // giovedì non riesco nemmeno: la sposto a sabato
     app.setDayOff(k(3), 'impegno', dayId: thu.day!.id, moveTo: k(5));
-    expect(slotOn(app, mon.add(const Duration(days: 3)))!.statusLabel, 'Rimandata');
-    expect(slotOn(app, mon.add(const Duration(days: 4)))!.day!.id, 'C');
-    expect(slotOn(app, mon.add(const Duration(days: 5)))!.day!.id, 'B');
+    expect(slotOn(app, addDays(mon, 3))!.statusLabel, 'Rimandata');
+    expect(slotOn(app, addDays(mon, 4))!.day!.id, 'C');
+    expect(slotOn(app, addDays(mon, 5))!.day!.id, 'B');
     // fatte venerdì Gambe e sabato Full upper: lunedì si riparte da capo, senza sedute perse
-    app.saveSession(done(mon.add(const Duration(days: 4)), [('squat', 4)], planId: 'p', dayId: 'C'));
-    app.saveSession(done(mon.add(const Duration(days: 5)), [('panca-inclinata', 4)], planId: 'p', dayId: 'B'));
-    expect(slotOn(app, mon.add(const Duration(days: 7)))!.day!.id, 'A');
+    app.saveSession(done(addDays(mon, 4), [('squat', 4)], planId: 'p', dayId: 'C'));
+    app.saveSession(done(addDays(mon, 5), [('panca-inclinata', 4)], planId: 'p', dayId: 'B'));
+    expect(slotOn(app, addDays(mon, 7))!.day!.id, 'A');
   });
 
   test('consiglio sullo spostamento: stessi muscoli il giorno dopo, propone un giorno libero migliore', () async {
     final app = await newApp(const [1, 3, 5]);
-    final mon = mondayOf(today()).add(const Duration(days: 7));
-    DateTime day(int i) => mon.add(Duration(days: i));
+    final mon = addDays(mondayOf(today()), 7);
+    DateTime day(int i) => addDays(mon, i);
     final options = [for (var i = 1; i <= 7; i++) day(i)];
     // Full upper di mercoledì a giovedì: venerdì ci sono le gambe, nessun problema
     expect(moveAdvice(app, upperB, day(3), from: dayKey(day(2)), options: options), isNull);
@@ -230,9 +230,9 @@ void main() {
 
   test('seduta alternativa: niente gambe, resta il core, i muscoli meno allenati della settimana', () async {
     final app = await newApp(const []);
-    final fri = mondayOf(today()).add(const Duration(days: 11)); // venerdì della settimana prossima
-    app.saveSession(done(fri.subtract(const Duration(days: 4)), [('panca-piana', 4), ('lat-machine', 4), ('curl-manubri', 3)]));
-    app.saveSession(done(fri.subtract(const Duration(days: 2)), [('panca-piana', 3), ('lat-machine', 3), ('curl-manubri', 3)]));
+    final fri = addDays(mondayOf(today()), 11); // venerdì della settimana prossima
+    app.saveSession(done(addDays(fri, -4), [('panca-piana', 4), ('lat-machine', 4), ('curl-manubri', 3)]));
+    app.saveSession(done(addDays(fri, -2), [('panca-piana', 3), ('lat-machine', 3), ('curl-manubri', 3)]));
 
     final alt = alternativeFor(app, fri, legs, ['Gambe']);
     final muscles = [for (final it in alt.day.items) app.exercise(it.ex)!.muscle];
@@ -245,7 +245,7 @@ void main() {
     expect(alt.day.items.map((it) => it.sets).take(3), [4, 3, 3]);
 
     // spalle allenate il giorno prima: passano in fondo
-    app.saveSession(done(fri.subtract(const Duration(days: 1)), [('lento-manubri', 3)]));
+    app.saveSession(done(addDays(fri, -1), [('lento-manubri', 3)]));
     final alt2 = alternativeFor(app, fri, legs, ['Gambe']);
     expect(alt2.added.first, 'Tricipiti');
     expect(alt2.added, isNot(contains('Spalle')));

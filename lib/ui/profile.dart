@@ -11,6 +11,7 @@ import '../services/drive_backup.dart';
 import '../services/services.dart';
 import '../services/updates.dart';
 import 'charts.dart';
+import 'consult.dart';
 import 'hevy_import.dart';
 import 'plans.dart';
 import 'settings/drive_settings.dart';
@@ -140,6 +141,14 @@ class ProfileScreen extends StatelessWidget {
           () => push(context, const HomeGymScreen())),
       _Setting(Icons.move_to_inbox_rounded, 'Importa da Hevy', 'Storico, schede ed esercizi', () => push(context, const HevyImportScreen())),
       const SectionLabel('Voto e promemoria'),
+      _Setting(
+          Icons.forum_outlined,
+          'Consulenza',
+          switch (app.lastConsult) {
+            null => 'Copia i dati per Claude',
+            final c => 'Ultima ${relDay(fromKey(c.id)).toLowerCase()} · ${c.done.length}/${c.items.length} fatte',
+          },
+          () => push(context, const ConsultScreen())),
       _Setting(Icons.checklist_rounded, 'Abitudini nel voto', '${p.habits.entries.where((e) => e.value && e.key != 'supp').length} attive', () => push(context, const HabitsSettingsScreen())),
       _Setting(Icons.notifications_none_rounded, 'Promemoria', _remindersSummary(p.reminders), () => push(context, const RemindersScreen())),
       const SectionLabel('PC, telefono e dati'),
@@ -190,7 +199,7 @@ class ProfileScreen extends StatelessWidget {
 
   String _remindersSummary(Reminders r) {
     final n = r.meals.where((m) => m.on).length;
-    final parts = [if (n > 0) 'Pasti', if (r.waterOn) 'acqua', if (r.trainingOn) 'allenamento', if (r.weightOn) 'peso', if (r.reportOn) 'report'];
+    final parts = [if (n > 0) 'Pasti', if (r.waterOn) 'acqua', if (r.trainingOn) 'allenamento', if (r.weightOn) 'peso', if (r.reportOn) 'bilancio'];
     return parts.isEmpty ? 'Spenti' : parts.join(' + ');
   }
 }

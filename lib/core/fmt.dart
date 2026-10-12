@@ -80,13 +80,17 @@ DateTime fromKey(String k) {
   return DateTime(int.parse(p[0]), int.parse(p[1]), int.parse(p[2]));
 }
 
-String addDaysKey(String k, int days) => dayKey(fromKey(k).add(Duration(days: days)));
+/// Giorni di calendario in più o in meno. Non usare `add(Duration(days:))` sulle date:
+/// sposta di 24 ore e nei giorni del cambio dell'ora finisce nel giorno sbagliato.
+DateTime addDays(DateTime d, int n) => DateTime(d.year, d.month, d.day + n, d.hour, d.minute, d.second, d.millisecond);
+
+String addDaysKey(String k, int days) => dayKey(addDays(fromKey(k), days));
 
 /// Differenza in giorni di calendario (b - a).
 int daysBetween(DateTime a, DateTime b) =>
     DateTime.utc(b.year, b.month, b.day).difference(DateTime.utc(a.year, a.month, a.day)).inDays;
 
-DateTime mondayOf(DateTime d) => dateOnly(d).subtract(Duration(days: d.weekday - 1));
+DateTime mondayOf(DateTime d) => DateTime(d.year, d.month, d.day - (d.weekday - 1));
 
 /// "Martedì 14 ottobre"
 String longDate(DateTime d) => '${giorni[d.weekday - 1]} ${d.day} ${mesi[d.month - 1]}';

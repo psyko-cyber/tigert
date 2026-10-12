@@ -68,7 +68,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
           tooltip: 'Scegli data',
           icon: const Icon(Icons.calendar_month_rounded),
           onPressed: () async {
-            final r = await showDatePicker(context: context, initialDate: d, firstDate: DateTime(2020), lastDate: today().add(const Duration(days: 30)));
+            final r = await showDatePicker(context: context, initialDate: d, firstDate: DateTime(2020), lastDate: addDays(today(), 30));
             if (r != null) setState(() => date = dayKey(r));
           },
         ),

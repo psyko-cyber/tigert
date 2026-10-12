@@ -50,7 +50,7 @@ Future<AppState> newApp() async {
 }
 
 /// Una sessione conclusa `daysAgo` giorni fa con un solo esercizio.
-Session done(String exId, int daysAgo, List<(double, int)> sets, {double? rpe}) {
+Session done(String exId, int daysAgo, List<(double, int)> sets, {double? rpe, int rMin = 8, int rMax = 12}) {
   final d = DateTime.now().subtract(Duration(days: daysAgo));
   return Session(
     id: 's$exId$daysAgo',
@@ -60,7 +60,7 @@ Session done(String exId, int daysAgo, List<(double, int)> sets, {double? rpe}) 
     end: d.millisecondsSinceEpoch + 3600000,
     status: 'done',
     items: [
-      SessionEx(ex: exId, name: exId, type: 'c', target: PlanItem(ex: exId, sets: sets.length), sets: [
+      SessionEx(ex: exId, name: exId, type: 'c', target: PlanItem(ex: exId, sets: sets.length, rMin: rMin, rMax: rMax), sets: [
         for (final (kg, r) in sets) SetLog(kg: kg, reps: r, rpe: rpe, done: true),
       ]),
     ],
@@ -223,6 +223,8 @@ void main() {
 
     test('API di Hevy Pro (risposte simulate)', () async {
       final app = await newApp();
+      // date vicine a oggi: con date fisse dopo 4 settimane il coach vedrebbe una pausa
+      String recent(String? page) => dayKey(DateTime.now().toUtc().subtract(Duration(days: 6 - int.parse(page!))));
       final client = MockClient((req) async {
         expect(req.headers['api-key'], 'chiave');
         final page = req.url.queryParameters['page'];
@@ -251,7 +253,7 @@ void main() {
           case '/v1/workouts':
             // due pagine per verificare la paginazione
             body = {'page': int.parse(page!), 'page_count': 2, 'workouts': [
-              {'id': 'w$page', 'title': 'Push', 'routine_id': 'r1', 'start_time': '2026-09-1${page}T17:00:00Z', 'end_time': '2026-09-1${page}T18:00:00Z', 'exercises': [
+              {'id': 'w$page', 'title': 'Push', 'routine_id': 'r1', 'start_time': '${recent(page)}T17:00:00Z', 'end_time': '${recent(page)}T18:00:00Z', 'exercises': [
                 {'index': 0, 'title': 'Bench Press (Barbell)', 'exercise_template_id': 'B1', 'sets': [
                   {'index': 0, 'type': 'normal', 'weight_kg': 80, 'reps': 8, 'rpe': 8},
                   {'index': 1, 'type': 'normal', 'weight_kg': 80, 'reps': 8, 'rpe': 8},
@@ -279,7 +281,7 @@ void main() {
       expect((r.sessions, r.exercisesCreated, r.plans, r.weights), (2, 1, 1, 1));
       final custom = app.exercises.values.firstWhere((e) => e.custom);
       expect((custom.name, custom.muscle, custom.equip), ('Macchina Strana Mia', 'Dorso', 'Macchina'));
-      // 3×8 a RPE ≤ 9 sul tetto del range 6-8 → il coach propone di salire
+      // 3×8 sul tetto del range 6-8 → il coach propone di salire
       final a = adviceFor(app, app.activePlan!.days.first.items.single);
       expect(a.kind, AdviceKind.increase);
       expect(a.kg, 82.5);
@@ -305,10 +307,11 @@ void main() {
       expect(ex.sets.map((s) => (s.kg, s.reps)).toSet(), {(62.5, 8)});
     });
 
-    test('RPE troppo alto al tetto → non si sale ancora', () async {
+    test('tetto raggiunto a cedimento → si sale lo stesso', () async {
       final app = await newApp();
       app.saveSession(done('panca-piana', 3, [(60, 12), (60, 12), (60, 12)], rpe: 10));
-      expect(adviceFor(app, it).kind, AdviceKind.reps);
+      final a = adviceFor(app, it);
+      expect((a.kind, a.kg), (AdviceKind.increase, 62.5));
     });
 
     test('in mezzo al range → una ripetizione in più', () async {
@@ -318,20 +321,84 @@ void main() {
       expect((a.kind, a.kg, a.reps), (AdviceKind.reps, 60.0, 11));
     });
 
-    test('sotto il minimo → carico più leggero', () async {
+    test('sotto il minimo: la prima volta si riprova, la seconda si scende', () async {
       final app = await newApp();
-      app.saveSession(done('panca-piana', 2, [(70, 6), (70, 5), (70, 5)]));
-      final a = adviceFor(app, it);
+      app.saveSession(done('panca-piana', 5, [(70, 6), (70, 5), (70, 5)]));
+      var a = adviceFor(app, it);
+      expect((a.kind, a.kg, a.reps), (AdviceKind.reps, 70.0, 8));
+      app.saveSession(done('panca-piana', 2, [(70, 7), (70, 6), (70, 5)]));
+      a = adviceFor(app, it);
       expect((a.kind, a.kg), (AdviceKind.lighter, 67.5));
     });
 
-    test('3 sedute ferme → scarico del 10%', () async {
+    test('la serie migliore è nel range → non è troppo pesante', () async {
+      // 9 e poi 8 su un range 9-11: a cedimento il calo sulla seconda serie è normale
+      final app = await newApp();
+      const cavo = PlanItem(ex: 'pulley', sets: 2, rMin: 9, rMax: 11);
+      app.saveSession(done('pulley', 5, [(45, 9), (45, 8)], rpe: 10, rMin: 9, rMax: 11));
+      app.saveSession(done('pulley', 2, [(45, 9), (45, 8)], rpe: 10, rMin: 9, rMax: 11));
+      final a = adviceFor(app, cavo);
+      expect((a.kind, a.kg, a.reps), (AdviceKind.reps, 45.0, 10));
+    });
+
+    test('4 sedute ferme → scarico del 10%', () async {
       final app = await newApp();
       app.saveSession(done('panca-piana', 9, [(80, 10), (80, 9), (80, 9)]));
       app.saveSession(done('panca-piana', 5, [(80, 10), (80, 9), (80, 8)]));
       app.saveSession(done('panca-piana', 2, [(80, 9), (80, 9), (80, 8)]));
+      expect(adviceFor(app, it).kind, AdviceKind.reps);
+      app.saveSession(done('panca-piana', 1, [(80, 9), (80, 9), (80, 8)]));
       final a = adviceFor(app, it);
       expect((a.kind, a.kg), (AdviceKind.deload, 72.5));
+    });
+
+    test('stesso esercizio in due sedute con range diversi: ognuno il suo storico', () async {
+      final app = await newApp();
+      const pesante = PlanItem(ex: 'rematore-tbar', sets: 2, rMin: 6, rMax: 10);
+      const leggero = PlanItem(ex: 'rematore-tbar', sets: 2, rMin: 9, rMax: 11);
+      app.saveSession(done('rematore-tbar', 4, [(60, 8), (60, 7)], rMin: 6, rMax: 10));
+      // prima volta col range 9-11: il carico si adatta una volta sola
+      var b = adviceFor(app, leggero);
+      expect((b.kind, b.kg, b.title), (AdviceKind.lighter, 57.5, 'Range diverso: 9-11'));
+      app.saveSession(done('rematore-tbar', 2, [(57.5, 9), (57.5, 9)], rMin: 9, rMax: 11));
+      // da qui 8 ripetizioni nel giorno pesante non fanno più scendere il giorno leggero
+      b = adviceFor(app, leggero);
+      expect((b.kind, b.kg, b.reps), (AdviceKind.reps, 57.5, 10));
+      final a = adviceFor(app, pesante);
+      expect((a.kind, a.kg, a.reps), (AdviceKind.reps, 60.0, 9));
+    });
+
+    test('rientro dopo una pausa lunga: 70%, poi +10% a seduta fino al carico di prima', () async {
+      final app = await newApp();
+      const lp = PlanItem(ex: 'leg-press', sets: 1, rMin: 6, rMax: 10);
+      Session s(int daysAgo, double kg, int reps) => done('leg-press', daysAgo, [(kg, reps)], rMin: 6, rMax: 10);
+      app.saveSession(s(84, 70, 8));
+      var a = adviceFor(app, lp);
+      expect((a.kind, a.kg, a.reps, a.title), (AdviceKind.lighter, 50.0, 10, 'Rientro dopo 12 settimane'));
+      expect(buildSessionEx(app, lp).sets.single.kg, 50);
+      final steps = <double>[];
+      for (final (daysAgo, kg) in [(8, 50.0), (6, 55.0), (4, 60.0), (2, 65.0)]) {
+        app.saveSession(s(daysAgo, kg, 10));
+        a = adviceFor(app, lp);
+        expect(a.kind, AdviceKind.increase);
+        steps.add(a.kg);
+      }
+      expect(steps, [55, 60, 65, 70]);
+      // tornato al carico di prima: riparte la progressione normale
+      app.saveSession(s(0, 70, 7));
+      a = adviceFor(app, lp);
+      expect((a.kind, a.kg, a.reps), (AdviceKind.reps, 70.0, 8));
+    });
+
+    test('muscolo allenato di recente → nessuna ripresa per un esercizio fermo da mesi', () async {
+      final app = await newApp();
+      const manubri = PlanItem(ex: 'panca-inclinata-manubri', sets: 2);
+      app.saveSession(done('panca-inclinata-manubri', 90, [(22, 10), (22, 9)]));
+      expect(adviceFor(app, manubri).kind, AdviceKind.lighter);
+      // il petto lo alleni con la panca piana: l'esercizio riparte dal carico dell'ultima volta
+      app.saveSession(done('panca-piana', 2, [(60, 10), (60, 9), (60, 9)]));
+      final a = adviceFor(app, manubri);
+      expect((a.kind, a.kg, a.reps), (AdviceKind.reps, 22.0, 11));
     });
 
     test('dopo più di 4 settimane → si riparte al 90%', () async {

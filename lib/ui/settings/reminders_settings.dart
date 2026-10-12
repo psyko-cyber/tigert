@@ -10,8 +10,6 @@ import '../widgets.dart';
 class RemindersScreen extends StatelessWidget {
   const RemindersScreen({super.key});
 
-  static const _waterSteps = [60, 90, 120, 180];
-
   void _save(BuildContext context, Reminders r) {
     final app = context.appRead;
     app.saveProfile(app.profile!.copyWith(reminders: r));
@@ -79,23 +77,12 @@ class RemindersScreen extends StatelessWidget {
         const SectionLabel('Acqua'),
         _ReminderRow(
           title: 'Promemoria acqua',
-          subtitle: 'Solo se sei indietro rispetto all\'obiettivo',
+          subtitle: 'Due al giorno, solo se non hai già raggiunto l\'obiettivo',
           on: r.waterOn,
           onToggle: (v) => _save(context, r.copyWith(waterOn: v)),
         ),
         if (r.waterOn) ...[
           const SizedBox(height: 4),
-          Row(children: [
-            Text('Ogni', style: TS.soft(t)),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Wrap(spacing: 6, runSpacing: 6, children: [
-                for (final m in _waterSteps)
-                  PillChip(m % 60 == 0 ? '${m ~/ 60} h' : '${m ~/ 60} h ${m % 60}′', selected: r.waterEvery == m, onTap: () => _save(context, r.copyWith(waterEvery: m))),
-              ]),
-            ),
-          ]),
-          const SizedBox(height: 10),
           Row(children: [
             Expanded(
               child: _TimeBox(label: 'Dalle', time: r.waterFrom, onTap: () async {
@@ -131,8 +118,8 @@ class RemindersScreen extends StatelessWidget {
           onToggle: (v) => _save(context, r.copyWith(coachOn: v)),
         ),
         _ReminderRow(
-          title: 'Report settimanale',
-          subtitle: 'Il sabato: quanto hai allenato ogni muscolo e la seduta a casa per recuperare',
+          title: 'Bilancio settimanale',
+          subtitle: 'Il sabato: peso, forza, muscoli e costanza della settimana',
           time: r.reportTime,
           on: r.reportOn,
           onToggle: (v) => _save(context, r.copyWith(reportOn: v)),
@@ -143,7 +130,7 @@ class RemindersScreen extends StatelessWidget {
         ),
         _ReminderRow(
           title: 'Pesata',
-          subtitle: 'Al mattino, a digiuno',
+          subtitle: 'Lunedì, giovedì e sabato al mattino, a digiuno: ne bastano tre a settimana',
           time: r.weightTime,
           on: r.weightOn,
           onToggle: (v) => _save(context, r.copyWith(weightOn: v)),
@@ -166,7 +153,7 @@ class RemindersScreen extends StatelessWidget {
           ),
         _ReminderRow(
           title: 'Riepilogo serale',
-          subtitle: 'Ti dice cosa manca per chiudere bene la giornata',
+          subtitle: 'Solo se manca qualcosa, e ti dice cosa',
           time: r.eveningTime,
           on: r.eveningOn,
           onToggle: (v) => _save(context, r.copyWith(eveningOn: v)),

@@ -113,6 +113,8 @@ def clean():
 
 
 if __name__ == '__main__':
+    # con l'output rediretto Python usa cp1252 e si ferma sul "√" di flutter build
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
     args = [a for a in sys.argv[1:] if not a.startswith('--')]
     if '--clean' in sys.argv:
         clean()

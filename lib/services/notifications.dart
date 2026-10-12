@@ -10,10 +10,22 @@ import '../core/fmt.dart';
 import '../core/ids.dart';
 import '../data/app_state.dart';
 import '../data/models.dart';
+import '../logic/balance.dart';
+import '../logic/nutrition.dart';
 import '../logic/score.dart';
 import '../logic/supplements.dart';
 import '../logic/training.dart';
 import '../logic/week_report.dart';
+
+/// Due promemoria dell'acqua al giorno: a un terzo e a due terzi della fascia scelta.
+List<DateTime> waterTimes(DateTime from, DateTime to) {
+  final span = to.difference(from).inMinutes;
+  if (span <= 0) return [from];
+  return [from.add(Duration(minutes: span ~/ 3)), from.add(Duration(minutes: span * 2 ~/ 3))];
+}
+
+const _waterBody = 'A che punto sei con l\'acqua?';
+const _weightBody = 'Pesata di oggi: conta la media dei 7 giorni, non il numero che leggi.';
 
 class _Planned {
   final int id;
@@ -125,7 +137,7 @@ class NotificationService {
     final now = DateTime.now();
     final out = <_Planned>[];
     for (var d = 0; d < days; d++) {
-      final day = today().add(Duration(days: d));
+      final day = addDays(today(), d);
       final key = dayKey(day);
       final isToday = d == 0;
       DateTime at(String hhmm) {
@@ -140,26 +152,27 @@ class NotificationService {
         out.add(_Planned(100 + d * 10 + i, at(m.time), m.label, _mealBody(m.id)));
       }
       if (r.waterOn && p.habitOn('water') && !(isToday && app.habit(key).water >= p.waterMl)) {
-        var t = at(r.waterFrom);
-        final end = at(r.waterTo);
-        var i = 0;
-        while (!t.isAfter(end) && i < 10) {
-          out.add(_Planned(200 + d * 10 + i, t, 'Acqua', 'Un bicchiere adesso? Obiettivo ${fDec(p.waterMl / 1000, 1, true)} L.'));
-          t = t.add(Duration(minutes: r.waterEvery.clamp(30, 600)));
-          i++;
+        final times = waterTimes(at(r.waterFrom), at(r.waterTo));
+        for (var i = 0; i < times.length; i++) {
+          out.add(_Planned(200 + d * 10 + i, times[i], 'Acqua', '$_waterBody Obiettivo ${fDec(p.waterMl / 1000, 1, true)} L.'));
         }
       }
       if (r.trainingOn && (p.trainingDays.contains(day.weekday) || app.habit(key).moved != null) && !app.habit(key).isOff && !(isToday && (app.sessionsByDate[key]?.isNotEmpty ?? false))) {
         out.add(_Planned(300 + d, at(r.trainingTime), 'Allenamento', trainingReminderBody(app, day)));
       }
-      if (r.weightOn && !(isToday && app.weightOn(key) != null)) {
-        out.add(_Planned(400 + d, at(r.weightTime), 'Peso', 'Pesati prima di colazione: la media dei 7 giorni diventa più precisa.'));
+      if (r.weightOn && weighDays.contains(day.weekday) && !(isToday && app.weightOn(key) != null)) {
+        out.add(_Planned(400 + d, at(r.weightTime), 'Peso', _weightBody));
       }
       if (r.eveningOn) {
-        out.add(_Planned(500 + d, at(r.eveningTime), 'Chiudi la giornata', 'Controlla il voto e cosa manca per salire.'));
+        // oggi parte solo se manca qualcosa, e dice cosa
+        final tips = isToday ? app.score(key).tips : const <Tip>[];
+        if (!isToday || tips.isNotEmpty) {
+          out.add(_Planned(500 + d, at(r.eveningTime), 'Chiudi la giornata',
+              tips.isEmpty ? 'Controlla il voto e cosa manca per salire.' : tips.take(2).map((x) => x.text).join(' ')));
+        }
       }
       if (r.reportOn && day.weekday == reportWeekday) {
-        out.add(_Planned(700 + d, at(r.reportTime), 'Report della settimana', reportNotificationBody(app, day)));
+        out.add(_Planned(700 + d, at(r.reportTime), 'Bilancio della settimana', balanceNotificationBody(app, day)));
       }
       final supps = pendingSupplements(p, isToday ? app.habit(key) : HabitDay(date: key));
       if (r.suppOn && supps.isNotEmpty) {
@@ -230,30 +243,29 @@ class NotificationService {
     }
     if (r.waterOn && p.habitOn('water')) {
       final from = r.waterFrom.split(':'), to = r.waterTo.split(':');
-      var t = DateTime(now.year, now.month, now.day, int.tryParse(from[0]) ?? 9, int.tryParse(from.length > 1 ? from[1] : '0') ?? 0);
+      final start = DateTime(now.year, now.month, now.day, int.tryParse(from[0]) ?? 9, int.tryParse(from.length > 1 ? from[1] : '0') ?? 0);
       final end = DateTime(now.year, now.month, now.day, int.tryParse(to[0]) ?? 21, int.tryParse(to.length > 1 ? to[1] : '0') ?? 0);
-      var i = 0;
-      while (!t.isAfter(end) && i < 12) {
-        check('water-$i', hhmm(t), 'Acqua', 'Un bicchiere adesso? Obiettivo ${fDec(p.waterMl / 1000, 1, true)} L.', () => app.habit(k).water < p.waterMl);
-        t = t.add(Duration(minutes: r.waterEvery.clamp(30, 600)));
-        i++;
+      final times = waterTimes(start, end);
+      for (var i = 0; i < times.length; i++) {
+        check('water-$i', hhmm(times[i]), 'Acqua', '$_waterBody Obiettivo ${fDec(p.waterMl / 1000, 1, true)} L.', () => app.habit(k).water < p.waterMl);
       }
     }
     if (r.trainingOn && (p.trainingDays.contains(now.weekday) || app.habit(k).moved != null) && !app.habit(k).isOff) {
       check('train', r.trainingTime, 'Allenamento', trainingReminderBody(app, now), () => app.sessionsByDate[k]?.isEmpty ?? true);
     }
-    if (r.weightOn) {
-      check('weight', r.weightTime, 'Peso', 'Pesati prima di colazione.', () => app.weightOn(k) == null);
+    if (r.weightOn && weighDays.contains(now.weekday)) {
+      check('weight', r.weightTime, 'Peso', _weightBody, () => app.weightOn(k) == null);
     }
     if (r.suppOn) {
       final supps = pendingSupplements(p, app.habit(k));
       if (supps.isNotEmpty) check('supp', r.suppTime, 'Integratori', _suppBody(supps), () => pendingSupplements(p, app.habit(k)).isNotEmpty);
     }
     if (r.reportOn && now.weekday == reportWeekday) {
-      check('report', r.reportTime, 'Report della settimana', reportNotificationBody(app, now), () => true);
+      check('report', r.reportTime, 'Bilancio della settimana', balanceNotificationBody(app, now), () => true);
     }
     if (r.eveningOn) {
-      check('evening', r.eveningTime, 'Chiudi la giornata', 'Voto attuale ${fDec(app.score(k).v)}: guarda cosa manca per salire.', () => true);
+      final sc = app.score(k);
+      check('evening', r.eveningTime, 'Chiudi la giornata', 'Voto attuale ${fDec(sc.v)}. ${sc.tips.take(2).map((x) => x.text).join(' ')}', () => app.score(k).tips.isNotEmpty);
     }
   }
 

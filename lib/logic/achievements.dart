@@ -38,23 +38,23 @@ LevelInfo levelFor(int xp) {
 /// Giorni consecutivi con voto ≥ 6. Oggi conta solo se già raggiunto.
 int streak(AppState s) => s.memo('streak', () {
       var d = today();
-      if (s.score(dayKey(d)).v < 6) d = d.subtract(const Duration(days: 1));
+      if (s.score(dayKey(d)).v < 6) d = addDays(d, -1);
       var n = 0;
       while (n < 3650) {
         final k = dayKey(d);
         if (!s.activeDates.contains(k) || s.score(k).v < 6) break;
         n++;
-        d = d.subtract(const Duration(days: 1));
+        d = addDays(d, -1);
       }
       return n;
     });
 
 /// Mappa delle ultime [weeks] settimane (da lunedì): voto o null.
 List<(DateTime, double?)> heatmap(AppState s, {int weeks = 10}) {
-  final start = mondayOf(DateTime.now()).subtract(Duration(days: (weeks - 1) * 7));
+  final start = addDays(mondayOf(DateTime.now()), -((weeks - 1) * 7));
   final t = today();
   return List.generate(weeks * 7, (i) {
-    final d = start.add(Duration(days: i));
+    final d = addDays(start, i);
     if (d.isAfter(t)) return (d, null);
     final k = dayKey(d);
     if (!s.activeDates.contains(k)) return (d, null);

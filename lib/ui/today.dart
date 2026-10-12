@@ -15,6 +15,7 @@ import '../logic/supplements.dart';
 import '../logic/training.dart';
 import '../services/updates.dart';
 import 'achievements_screen.dart';
+import 'consult.dart';
 import 'diary.dart';
 import 'extra_activity.dart';
 import 'score_detail.dart';
@@ -111,7 +112,7 @@ class _DayView extends StatelessWidget {
             ]),
           ]),
         ),
-      if (isToday && showReportToday(app)) const WeekReportCard(),
+      if (isToday && showReportToday(app)) const BalanceCard(),
       const SizedBox(height: 16),
       // ------------------------------------------------------------ voto
       TCard(
@@ -142,6 +143,7 @@ class _DayView extends StatelessWidget {
             TextSpan(text: ': l\'allenamento non entra nel voto, il peso passa su nutrizione e abitudini.'),
           ])),
         ),
+      if (currentPriorities(app) case final c? when isToday) PrioritiesCard(c),
       const SizedBox(height: 12),
       // ------------------------------------------------------------ calorie
       TCard(
@@ -185,8 +187,6 @@ class _DayView extends StatelessWidget {
       ),
       const SizedBox(height: 12),
       _WorkoutCard(date: k),
-      const SizedBox(height: 12),
-      _WaterWeightRow(date: k),
       const SizedBox(height: 12),
       _HabitsCard(date: k),
       const SizedBox(height: 12),
@@ -308,96 +308,7 @@ class _WorkoutCard extends StatelessWidget {
   }
 }
 
-class _WaterWeightRow extends StatelessWidget {
-  final String date;
-  const _WaterWeightRow({required this.date});
-  @override
-  Widget build(BuildContext context) {
-    final app = context.app;
-    final t = context.tt;
-    final p = app.profile!;
-    final k = date;
-    final isToday = k == todayKey();
-    final rel = relDay(fromKey(k)).toLowerCase();
-    final h = app.habit(k);
-    final glasses = (p.waterMl / 250).ceil().clamp(4, 16);
-    final full = (h.water / 250).floor();
-    final ws = app.weightStats;
-    final todayW = app.weightOn(k);
-    final shown = isToday ? todayW ?? app.latestWeight : todayW;
-    final wd = ws.weekDelta;
-    final trend = ws.trend;
-    final toGo = trend == null ? null : p.targetWeight - trend;
-
-    final water = TCard(
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Label('Acqua'),
-        const SizedBox(height: 4),
-        Text.rich(TextSpan(children: [
-          TextSpan(text: fDec(h.water / 1000, 2, true), style: TS.num(t, 26)),
-          TextSpan(text: ' / ${fDec(p.waterMl / 1000, 1, true)} L', style: TextStyle(fontSize: 14, color: t.dim, fontWeight: FontWeight.w600)),
-        ])),
-        const SizedBox(height: 10),
-        Row(children: [
-          for (var i = 0; i < glasses; i++) ...[
-            if (i > 0) const SizedBox(width: 3),
-            Expanded(
-              child: Container(
-                height: 16,
-                decoration: BoxDecoration(color: i < full ? TC.prot : t.surf2, borderRadius: BorderRadius.circular(4)),
-              ),
-            ),
-          ],
-        ]),
-        const SizedBox(height: 12),
-        Row(children: [
-          Expanded(child: SmallButton('+ 250 ml', onTap: () => app.addWater(k, 250))),
-          const SizedBox(width: 6),
-          SmallButton('−', onTap: h.water <= 0 ? null : () => app.addWater(k, -250)),
-        ]),
-      ]),
-    );
-
-    final weight = TCard(
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Label('Peso'),
-        const SizedBox(height: 4),
-        Text.rich(TextSpan(children: [
-          TextSpan(text: shown == null ? '—' : fDec(shown, 1), style: TS.num(t, 26)),
-          TextSpan(text: ' kg', style: TextStyle(fontSize: 14, color: t.dim, fontWeight: FontWeight.w600)),
-        ])),
-        const SizedBox(height: 6),
-        Text(
-          [
-            if (!isToday) todayW == null ? 'Non registrato $rel' : 'Peso di $rel',
-            if (isToday && wd != null) 'Media 7 gg ${fSigned(wd, 2)} kg',
-            if (isToday && todayW == null) 'Non ancora registrato oggi',
-            if (isToday && toGo != null && p.goal != Goal.maintain)
-              (p.goal == Goal.bulk ? toGo <= 0.05 : toGo >= -0.05) ? 'Obiettivo raggiunto 🎯' : 'Mancano ${fDec(toGo.abs(), 1)} kg ai ${fKg(p.targetWeight)}',
-          ].join('\n'),
-          style: TextStyle(fontSize: 12, color: t.dim, height: 1.4),
-          maxLines: 3,
-        ),
-        const SizedBox(height: 10),
-        SizedBox(
-          width: double.infinity,
-          child: SmallButton(todayW == null ? 'Registra peso' : 'Modifica', onTap: () async {
-            final v = await askNumber(context, title: 'Peso di $rel', initial: todayW ?? app.latestWeight, unit: 'kg', decimals: 2, min: 30, max: 300);
-            if (v != null) app.setWeight(k, double.parse(v.toStringAsFixed(2)));
-          }),
-        ),
-      ]),
-    );
-    return IntrinsicHeight(
-      child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Expanded(child: water),
-        const SizedBox(width: 12),
-        Expanded(child: weight),
-      ]),
-    );
-  }
-}
-
+/// Acqua, peso, sonno, passi, attività extra, alcol e integratori: una sola card a righe.
 class _HabitsCard extends StatelessWidget {
   final String date;
   const _HabitsCard({required this.date});
@@ -410,6 +321,44 @@ class _HabitsCard extends StatelessWidget {
     final isToday = k == todayKey();
     final rel = relDay(fromKey(k)).toLowerCase();
     final h = app.habit(k);
+
+    final glasses = (p.waterMl / 250).ceil().clamp(4, 16);
+    final full = (h.water / 250).floor();
+
+    // peso: con almeno due pesate in settimana si guarda la media, non il numero del giorno
+    final ws = app.weightStats;
+    final todayW = app.weightOn(k);
+    final inWeek = ws.entries.where((e) {
+      final d = daysBetween(fromKey(e.date), today());
+      return d >= 0 && d < 7;
+    }).length;
+    final avg = isToday && inWeek >= 2 ? ws.avg(today()) : null;
+    final shown = avg ?? (isToday ? todayW ?? app.latestWeight : todayW);
+    final trend = weightTrend(ws);
+    final String weightNote;
+    if (!isToday) {
+      weightNote = todayW == null ? 'Non registrato $rel' : 'Peso di $rel';
+    } else if (trend.slope != null) {
+      weightNote = '${fSigned(trend.slope!, 2)} kg/sett · ${weightVerdict(p, trend.slope!).$1}${avg != null && todayW != null ? ' · oggi ${fDec(todayW, 1)}' : ''}';
+    } else {
+      weightNote = 'Ancora ${trend.missing} ${trend.missing == 1 ? 'pesata' : 'pesate'} per vedere l\'andamento${p.autoAdjust ? ' e adeguare le calorie' : ''}';
+    }
+
+    Widget line(IconData icon, bool ok, String label, String value, String unit, List<Widget> actions) => Row(children: [
+          Icon(icon, size: 20, color: ok ? t.accentInk : t.dim),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(label, style: TextStyle(fontSize: 12, color: t.dim)),
+              Text.rich(TextSpan(children: [
+                TextSpan(text: value, style: TS.num(t, 19, w: FontWeight.w700)),
+                TextSpan(text: unit, style: TextStyle(fontSize: 13, color: t.dim, fontWeight: FontWeight.w600)),
+              ])),
+            ]),
+          ),
+          ...actions,
+        ]);
+
     final items = <Widget>[];
     if (p.habitOn('sleep')) {
       items.add(_HabitTile(
@@ -441,7 +390,35 @@ class _HabitsCard extends StatelessWidget {
     return TCard(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const Label('Abitudini'),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
+        line(Icons.water_drop_rounded, h.water >= p.waterMl, 'Acqua', fDec(h.water / 1000, 2, true), ' / ${fDec(p.waterMl / 1000, 1, true)} L', [
+          SmallButton('−', onTap: h.water <= 0 ? null : () => app.addWater(k, -250)),
+          const SizedBox(width: 6),
+          SmallButton('+ 250 ml', onTap: () => app.addWater(k, 250)),
+        ]),
+        Padding(
+          padding: const EdgeInsets.only(left: 32, top: 8),
+          child: Row(children: [
+            for (var i = 0; i < glasses; i++) ...[
+              if (i > 0) const SizedBox(width: 3),
+              Expanded(
+                child: Container(height: 6, decoration: BoxDecoration(color: i < full ? TC.prot : t.surf2, borderRadius: BorderRadius.circular(3))),
+              ),
+            ],
+          ]),
+        ),
+        Divider(height: 25, thickness: 1, color: t.line),
+        line(Icons.monitor_weight_outlined, todayW != null, avg == null ? 'Peso' : 'Peso · media 7 giorni', shown == null ? '—' : fDec(shown, 1), ' kg', [
+          SmallButton(todayW == null ? 'Registra' : 'Modifica', onTap: () async {
+            final v = await askNumber(context, title: 'Peso di $rel', initial: todayW ?? app.latestWeight, unit: 'kg', decimals: 2, min: 30, max: 300);
+            if (v != null) app.setWeight(k, double.parse(v.toStringAsFixed(2)));
+          }),
+        ]),
+        Padding(
+          padding: const EdgeInsets.only(left: 32, top: 4),
+          child: Text(weightNote, style: TextStyle(fontSize: 12, color: t.dim, height: 1.4)),
+        ),
+        Divider(height: 25, thickness: 1, color: t.line),
         if (items.isNotEmpty)
           Row(children: [
             for (var i = 0; i < items.length; i++) ...[if (i > 0) const SizedBox(width: 10), Expanded(child: items[i])],

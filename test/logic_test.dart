@@ -23,6 +23,16 @@ void main() {
       expect(daysBetween(fromKey('2026-01-01'), fromKey('2026-01-31')), 30);
     });
 
+    test('giorni di calendario anche al cambio dell\'ora', () {
+      // 25/10 l'ora torna indietro, 29/03 va avanti: 24 ore in più o in meno sbagliano giorno
+      expect(addDaysKey('2026-10-25', 1), '2026-10-26');
+      expect(addDaysKey('2026-03-30', -1), '2026-03-29');
+      expect(addDays(DateTime(2026, 10, 19), 7), DateTime(2026, 10, 26));
+      expect(addDays(DateTime(2026, 3, 30, 18, 30), -7), DateTime(2026, 3, 23, 18, 30));
+      expect(mondayOf(DateTime(2026, 3, 29, 12)), DateTime(2026, 3, 23));
+      expect(mondayOf(DateTime(2026, 10, 25, 23)), DateTime(2026, 10, 19));
+    });
+
     test('dopo mezzanotte, fino alle 4, il cibo va su ieri', () {
       expect(isLateNight(DateTime(2026, 9, 25, 0, 30)), isTrue);
       expect(isLateNight(DateTime(2026, 9, 25, 3, 59)), isTrue);

@@ -98,8 +98,9 @@ Future<void> showAdvice(BuildContext context, Advice a) {
           Text(a.text, style: TextStyle(fontSize: 14.5, color: t.ink, height: 1.45)),
           const SizedBox(height: 14),
           Text(
-            'Come funziona: lavori in un range di ripetizioni (es. 8-12). Quando fai tutte le serie al massimo del range senza superare '
-            'l\'RPE indicato, alzi il carico del minimo incremento e riparti dal basso. Se resti fermo per 3 sedute, scarichi del 10% e risali.',
+            'Come funziona: lavori in un range di ripetizioni (es. 8-12). Quando fai tutte le serie al massimo del range alzi il carico '
+            'del minimo incremento e riparti dal basso. Se resti fermo per 4 sedute, scarichi del 10% e risali. '
+            'Dopo una pausa lunga riparti più leggero e torni al carico di prima in poche sedute.',
             style: TS.muted(t, 12),
           ),
         ]),

@@ -240,7 +240,7 @@ void main() {
       expect(r.current, isTrue);
       expect(r.left, 8 - today().weekday, reason: 'da oggi a domenica');
       expect(r.muscles.any((m) => m.planned > 0), isTrue);
-      expect(reportNotificationBody(app, today()), isNotEmpty);
+      expect(r.summary, isNotEmpty);
     });
 
     test('attrezzatura e promemoria del report si salvano nel profilo', () {

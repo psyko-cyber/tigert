@@ -76,7 +76,7 @@ List<WeekSlot> _weekSchedule(AppState s, DateTime? ref) {
   }
   final out = <WeekSlot>[];
   for (var i = 0; i < 7; i++) {
-    final d = mon.add(Duration(days: i));
+    final d = addDays(mon, i);
     final key = dayKey(d);
     final sessions = (s.sessionsByDate[key] ?? const <Session>[]).toList();
     final h = habits[key];
@@ -121,7 +121,7 @@ WeekSlot? nextSlot(AppState s) {
     if (sl.status == SlotStatus.today || sl.status == SlotStatus.todo) return sl;
   }
   // settimana finita: primo slot della prossima
-  final next = weekSchedule(s, ref: DateTime.now().add(const Duration(days: 7)));
+  final next = weekSchedule(s, ref: addDays(DateTime.now(), 7));
   for (final sl in next) {
     if (sl.status == SlotStatus.todo || sl.status == SlotStatus.today) return sl;
   }
@@ -287,7 +287,7 @@ class Suggestion {
 }
 
 /// Doppia progressione (vedi progression.dart): quando tutte le serie arrivano
-/// al tetto delle ripetizioni entro l'RPE target, si alza il carico.
+/// al tetto delle ripetizioni si alza il carico.
 Suggestion suggestFor(AppState s, PlanItem it, {int? beforeTs}) {
   final a = adviceFor(s, it, beforeTs: beforeTs);
   return Suggestion(a.kg, a.reps, a.kind == AdviceKind.increase, a.title, a.text, a.kind);
@@ -299,14 +299,14 @@ Suggestion? liveTip(AppState s, SessionEx e) {
   final done = e.workDone;
   final it = e.target;
   if (done.length < it.sets || done.isEmpty) return null;
-  final atTop = done.every((x) => x.reps >= it.rMax && (x.rpe == null || x.rpe! <= it.rpe + 0.01));
+  final atTop = done.every((x) => x.reps >= it.rMax);
   if (!atTop) return null;
   final topKg = done.fold<double>(0, (a, b) => math.max(a, b.kg));
   final inc = ex?.inc ?? 2.5;
   if (inc <= 0 || ex?.isCardio == true) {
     return Suggestion(topKg, it.rMax + 1, false, 'Tetto raggiunto', 'La prossima volta aggiungi una ripetizione per serie.');
   }
-  return Suggestion(topKg + inc, it.rMin, true, 'Tetto raggiunto: ${it.sets}×${it.rMax} @ RPE ${fDec(it.rpe, 1, true)}',
+  return Suggestion(topKg + inc, it.rMin, true, 'Tetto raggiunto: ${it.sets}×${it.rMax}',
       'Sali a ${fKg(topKg + inc)} kg la prossima volta e riparti da ${it.rMin} ripetizioni.');
 }
 
@@ -375,7 +375,7 @@ List<ExerciseBest> _bestByExercise(AppState s) {
       }
     }
   }
-  final cutoff = today().subtract(const Duration(days: 28));
+  final cutoff = addDays(today(), -28);
   final out = <ExerciseBest>[];
   byEx.forEach((ex, list) {
     double val(SetLog st) => st.kg > 0 ? st.e1rm : st.reps.toDouble();

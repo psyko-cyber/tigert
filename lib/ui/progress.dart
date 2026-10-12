@@ -54,7 +54,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
     final p = app.profile!;
     final ws = app.weightStats;
     final now = today();
-    final from = range == 0 ? DateTime(2000) : now.subtract(Duration(days: range));
+    final from = range == 0 ? DateTime(2000) : addDays(now, -range);
     final pts = [
       for (final w in ws.entries)
         if (!fromKey(w.date).isBefore(from)) (fromKey(w.date), w.kg),
@@ -66,8 +66,8 @@ class _ProgressScreenState extends State<ProgressScreen> {
       final startW = ws.avg(start) ?? p.startWeight;
       final dir = p.goal == Goal.bulk ? 1 : -1;
       final weeks = (p.targetWeight - startW).abs() / math.max(0.05, p.rate);
-      final endByGoal = start.add(Duration(days: (weeks * 7).round()));
-      final end = endByGoal.isAfter(now.add(const Duration(days: 21))) ? now.add(const Duration(days: 21)) : endByGoal;
+      final endByGoal = addDays(start, (weeks * 7).round());
+      final end = endByGoal.isAfter(addDays(now, 21)) ? addDays(now, 21) : endByGoal;
       final endW = startW + dir * p.rate * daysBetween(start, end) / 7;
       traj = (start, startW, end, endW);
     }
