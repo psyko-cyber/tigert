@@ -3,19 +3,19 @@
 Serve a trovare subito dove mettere le mani senza cercare nel progetto.
 
 Uso (da tigert/):
-  python tool/mappa.py [file di uscita]      default: ../MAPPA.md
+  python tool/mappa.py [file di uscita]      default: ../doc/mappa.md
 """
 import re
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-OUT = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT.parent / 'MAPPA.md'
+OUT = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT.parent / 'doc' / 'mappa.md'
 
 TYPE = re.compile(r'^(?:abstract |final |sealed |base |interface )*(?:class|enum|extension|mixin|typedef)\s+(\w+)')
 VALUE = re.compile(r'^(?:late\s+)?(?:const|final|var)\s+(?:[\w<>?\[\], ()]+\s+)?(\w+)\s*(?:=|;)')
 GETTER = re.compile(r'^[\w<>?\[\], ()]+\s+get\s+(\w+)\b')
-FUNC = re.compile(r'^[A-Za-z_(\[][\w<>?\[\](), .]*?\s(\w+)\s*(?:<[^()]*>)?\(')
+FUNC = re.compile(r'^[A-Za-z_(\[][\w<>?\[\](){}, .]*?\s(\w+)\s*(?:<[^()]*>)?\(')  # le graffe: record con nomi
 SKIP = ('import ', 'export ', 'part ', 'library', '//', '@', '}', ')', ']')
 
 
@@ -70,7 +70,7 @@ out = [
     '# Mappa del codice',
     'Generata da `tigert/tool/mappa.py`: non modificarla a mano, rigenerala.',
     'Formato: `file (righe): Simbolo:riga · sezioni: nome:riga`. Solo i simboli pubblici di primo livello.',
-    'Uso: trova qui file e riga, poi Read con offset su quel punto. Per i membri di una classe: Grep nel solo file.',
+    'Uso: Grep qui del nome di file o del simbolo, poi Read con offset su quel punto. Per i membri di una classe: Grep nel solo file.',
 ]
 lib = ROOT / 'lib'
 for d in sorted({p.parent for p in lib.rglob('*.dart')}):
@@ -89,5 +89,6 @@ out.append('- android/app/: build.gradle.kts, src/main/AndroidManifest.xml (perm
 data = ROOT / 'assets' / 'data'
 out.append('- assets/data/: ' + ', '.join(f'{p.name} ({p.stat().st_size // 1024} KB, una riga)' for p in sorted(data.glob('*.json'))))
 
+OUT.parent.mkdir(parents=True, exist_ok=True)
 OUT.write_text('\n'.join(out) + '\n', encoding='utf-8', newline='\n')
 print(f'{OUT} ({OUT.stat().st_size} byte)')

@@ -5,9 +5,10 @@ Uso (da tigert/):
                                           SHA256SUMS, controllo di firma e versione, indice del codice
   python tool/release.py 2.1.0 --no-test  come sopra senza analyze e test (già fatti)
   python tool/release.py --clean          ferma Gradle, chiude i java delle build, cancella le cartelle di build
+                                          e i temporanei lasciati dai test
 
 Con la versione già scritta nei file ricompila senza toccarli; con una nuova alza anche il numero di build.
-Commit, push e `gh release create` restano a mano: vedi RILASCIO.md.
+Commit, push e `gh release create` restano a mano: vedi ../doc/rilascio.md.
 """
 import hashlib
 import os
@@ -15,6 +16,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -95,7 +97,7 @@ def prepare(version, test=True):
     print(f'firma APK {"ok" if ok_sign else "SBAGLIATA"} · versione nell\'APK {"ok" if ok_ver else "SBAGLIATA"} ({version}+{build})')
     if not (ok_sign and ok_ver):
         sys.exit('NON pubblicare')
-    print('Poi: commit e push, gh release create (RILASCIO.md), python tool/release.py --clean')
+    print('Poi: commit e push, gh release create (../doc/rilascio.md), python tool/release.py --clean')
 
 
 def clean():
@@ -108,6 +110,13 @@ def clean():
     subprocess.run(['powershell', '-NoProfile', '-Command', ps], capture_output=True)
     for d in BUILD_DIRS:
         shutil.rmtree(ROOT / d, ignore_errors=True)
+    (ROOT / '.flutter-plugins-dependencies').unlink(missing_ok=True)  # la riscrive `flutter pub get`
+    # ogni test lascia una cartella tigert_<nome>_<hex>; la consulenza dal PC anche il suo testo
+    tmp = Path(tempfile.gettempdir())
+    for d in tmp.glob('tigert_*'):
+        if d.is_dir():
+            shutil.rmtree(d, ignore_errors=True)
+    (tmp / 'tigert-consulenza.txt').unlink(missing_ok=True)
     left = [d for d in BUILD_DIRS if (ROOT / d).exists()]
     print('pulito' if not left else f'restano: {left}')
 
